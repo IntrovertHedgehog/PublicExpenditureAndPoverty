@@ -1,0 +1,47 @@
+---
+title: "Miscellanous"
+author: "Team 1 (Hedgehog, Callista, Imtiyaaz, Issac)"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Structure
+1. We find the impact of gov expenditure effect on poverty using conventional definition of poverty
+2. We redo the analysis using MPI as indicator of poverty
+3. We conclude form the results obtained.
+4. Some surprising correlation we experimented with, and how these can be a product of different reasons
+  1. Gender equality and poverty
+  2. 
+
+## Reference
+
+## Data source
+[MPM](https://www.worldbank.org/en/topic/poverty/brief/multidimensional-poverty-measure)
+[mpi](https://data.worldbank.org/indicator/SI.POV.MDIM)
+[pov215](https://data.worldbank.org/indicator/SI.POV.DDAY)
+
+[Country.Class](https://datahelpdesk.worldbank.org/knowledgebase/articles/906519-world-bank-country-and-lending-groups)
+[GDP.PC](https://data.worldbank.org/indicator/NY.GDP.PCAP.PP.CD)
+[Pri.edu](https://data.worldbank.org/indicator/SE.XPD.PRIM.ZS)
+[Sec.edu](https://data.worldbank.org/indicator/SE.XPD.SECO.ZS)
+[ter.edu](https://data.worldbank.org/indicator/SE.XPD.TERT.ZS)
+[total.edu](https://data.worldbank.org/indicator/SE.XPD.TOTL.GD.ZS)
+[health.exp](https://data.worldbank.org/indicator/SH.XPD.GHED.GD.ZS)
+[milis.exp](https://data.worldbank.org/indicator/MS.MIL.XPND.GD.ZS)
+
+[fdi](https://data.worldbank.org/indicator/BX.KLT.DINV.CD.WD)
+[unemp](https://data.worldbank.org/indicator/SL.UEM.TOTL.NE.ZS)
+[labor.frc.part](https://data.worldbank.org/indicator/SL.TLF.CACT.NE.ZS)
+[gender.equal](https://data.worldbank.org/indicator/IQ.CPA.GNDR.XQ)
+[pop.growth](https://data.worldbank.org/indicator/SP.POP.GROW)
+[urb.grw](https://data.worldbank.org/indicator/SP.URB.GROW)
+[rural.grw](https://data.worldbank.org/indicator/SP.RUR.TOTL.ZG)
+[inflation](https://data.worldbank.org/indicator/NY.GDP.DEFL.KD.ZG)
+[gross capital formation](https://data.worldbank.org/indicator/NE.GDI.TOTL.ZS)
+[trade](https://data.worldbank.org/indicator/NE.TRD.GNFS.ZS)
+[reg.class](https://datatopics.worldbank.org/world-development-indicators/the-world-by-income-and-region.html)
+[income.class](https://datahelpdesk.worldbank.org/knowledgebase/articles/906519-world-bank-country-and-lending-groups)

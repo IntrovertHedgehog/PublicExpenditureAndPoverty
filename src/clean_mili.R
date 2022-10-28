@@ -1,12 +1,4 @@
-library(dplyr)
-library(tidyverse)
-library(tidyr)
-library(tibble)
-
-options(dplyr.summarise.inform = FALSE)
-# edu
-
-eduNYear <- function(y1, y2) {
+miliNYear <- function(y1, y2) {
   df.expenditure %>% 
     filter(year >= y1 & year <= y2) %>%
     filter(!is.na(edu.expenditure)) %>% 
@@ -27,4 +19,3 @@ eduNYear2 <- function(noYear) {
   
   Reduce(rbind, list)
 }
-

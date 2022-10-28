@@ -9,22 +9,148 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Setting up
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r, message = FALSE}
+library(e1071)
+library(MASS)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(tibble)
+library(conflicted)
+library(knitr)
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+# everytime `select` is called, it will prefer dplyr function instead of MASS
+conflict_prefer(name = "select", winner = "dplyr")
+conflict_prefer(name = "filter", winner = "dplyr")
 ```
 
-## Including Plots
+## Data Cleaning
+### MPI
 
-You can also embed plots, for example:
+```{r}
+df.povert <- read.csv('../data/mpi.14.19.csv')
+str(df.povert)
+```
+How many data point we have each year?
+```{r}
+no.avail <- df.povert %>%
+  select(country.code, economy, year) %>% 
+  group_by(year) %>% 
+  summarise(`data points` = n())
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+kable(no.avail)
+
+hist(df.povert$year, breaks = 2010:2022)
+```
+We want to find difference of MPI in 2 separate year (i.e. y1 and y2) in each country. It's useful to know how many countries which were investigated in y1, were also investigated in y2.
+```{r}
+# Extract data from a specific year
+getYear <- function(yr) {
+    df.povert %>% 
+      select(country.code, economy, year, dep.monetary, dep.mpi) %>% 
+      filter(year == yr)
+}
+
+# segmented data by year (2012-2021)
+seg <- lapply(2012:2021, getYear)
+names(seg) <- 2012:2021
+str(seg)
+```
+Find overlapping countries
+```{r}
+# Calulate number of countries overlapping between s1 and s2
+noOverlap <- function(y1, y2) {
+  y1 %>%
+    inner_join(y2, by = "country.code") %>% 
+    filter(year.x != year.y) %>% 
+    summarise(count = n()) %>% 
+    pull()
+}
+
+# A 10x10 matrix to represent the no. of overlapping countries
+cross <- diag(10)
+rownames(cross) <- 2012:2021
+colnames(cross) <- 2012:2021
+
+# find no.of overlapping countries for each pair of years
+for (i in 1:10) {
+  cross[i,] = sapply(seg[1:10], noOverlap, y2 = seg[[i]])
+}
+
+cross
+```
+We find that each pair of years from 2012-2019 are fairly overlapping (mostly > 45). Therefore, taking any two years in this range will make a reasonable dataset for analysis.
+
+Next, we make a function to return the difference in MPI in any two year
+```{r}
+mpiDiff <- function(y1, y2) {
+  y1 <- as.character(y1)
+  y2 <- as.character(y2)
+  
+  fin.df <- seg[[y1]] %>%
+    inner_join(seg[[y2]], by = "country.code") %>% 
+    filter(year.x != year.y) %>% 
+    select(country.code,
+           economy = economy.x,
+           mpi.y1 = dep.mpi.x,
+           mpi.y2 = dep.mpi.y) %>% 
+    mutate(mpi.diff = mpi.y1 - mpi.y2)
+  
+  fin.df
+}
+
+# E.g. difference of mpi in 2012 and 2018
+mpi.12.18 <- mpiDiff(2012, 2018)
+head(mpi.12.18)
+```
+### Education
+This is a very rough processing and not very rigorous. For reference only
+
+First, do some summary on gdp (2012-2014)
+```{r}
+gdp <- read.csv('../data/gdp.csv')
+
+gdp <- as.tibble(gdp) %>% 
+  dplyr::select(economy, country.code, gdp.2012 = X2012, gdp.2013 = X2013, gdp.2014 = X2014)
+
+gdp <- gdp %>% mutate(no.avail = 3 - rowSums(is.na(.)), mean.gdp = (gdp.2012 %+% gdp.2013 %+% gdp.2014) / no.avail) %>% 
+  filter(!is.nan(mean.gdp)) %>% 
+  dplyr::select(economy, country.code, mean.gdp)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+#custom plus operator to ignore NAs
+#e.g. 1 + NA = 1.
+`%+%` <- function(x, y) {
+  mapply(sum, x, y, MoreArgs = list(na.rm = TRUE))
+}
+
+#import + clean data
+edu.expense <- read.csv('../data/edu.percent.gdp.csv')
+edu.expense <- as_tibble(edu.expense) %>% 
+  dplyr::select(economy, country.code, edu2012 = X2012, edu2013 = X2013, edu2014 = X2014)
+
+#get mean %expenditure on education 2012-2014
+edu.expense <- edu.expense %>% mutate(no.avail = 3 - rowSums(is.na(.)), mean.edu = (edu2012 %+% edu2013 %+% edu2014) / no.avail) %>% 
+  filter(!is.nan(mean.edu)) %>% 
+  dplyr::select(economy, country.code, mean.edu)
+
+# MPI with edu col
+dat <- mpi.12.18 %>%
+  dplyr::select(country.code, mpi.diff) %>% 
+  inner_join(edu.expense %>% 
+               dplyr::select(country.code, mean.edu), by = 'country.code') %>% 
+  inner_join(gdp %>% 
+               dplyr::select(country.code, mean.gdp), by = 'country.code')
+head(dat)
+
+lrm <- lm(mpi.diff ~ log(I(mean.edu * mean.gdp)), data = dat)
+summary(lrm)
+plot(dat$mean.gdp * dat$mean.edu, dat$mpi.diff)
+plot(lrm, which=1)
+hist(resid(lrm))
+```
+
