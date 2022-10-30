@@ -1,0 +1,218 @@
+---
+title: "Draft Documents"
+author: "Team 1 (Hedgehog, Callista, Imtiyaaz, Issac)"
+date: "`r Sys.Date()`"
+output: pdf_document
+bibliography: citations.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 2. Data Characteristic
+
+## 2.1. Nature of Data
+
+The data set is collection The World Bank Data, the variables of interest are extracted from the raw data files and combined into a single data frame for analysis. The final data set includes:
+
+1.  **country.code**: Country code\
+2.  **country.name**: Country name\
+3.  **year**: Year\
+4.  **income**: Income class
+    -   Low income (L)\
+    -   Lower middle income (LM)\
+    -   Upper middle income (UM)\
+    -   High income (H)\
+5.  **reg**: Region\
+6.  **pov**: Poverty headcount ratio\
+7.  **mpi**: Multidimensional Poverty Index\
+8.  **edu.total**: Total expenditure on education (% of GDP)\
+9.  **edu.pri**: Total expenditure on primary education (% of total education expenditure)\
+10. **edu.sec**: Total expenditure on secondary education (% of total education expenditure)\
+11. **edu.ter**: Total expenditure on tertiary education (% of total education expenditure)\
+12. **hlth**: Total expenditure on health (% of GDP)\
+13. **mil**: Total expenditure on military (% of GDP)\
+14. **fdi**: Foreign Direct Investment\
+15. **lbr.part**: Labour force participation (% of population ages 15+)\
+16. **unemp**: Unemployment rate\
+17. **pop.gwth.total**: Total population growth rate\
+18. **pop.gwth.rural**: Total rural population growth rate\
+19. **pop.gwth.urban**: Total urban population growth rate\
+20. **gdp.dflt**: GDP deflator\
+21. **gdr.eql**: Gender equality rating\
+22. **gcf**: Gross Capital Formation\
+23. **trade**: Trade = import + export (% of GDP)
+
+Data imports and combining:
+
+```{r, message = F}
+# required library
+library(knitr)
+library(readr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+# helper functions
+importWDI <- function(filepath, value_name) {
+  df <- read_csv(filepath, skip = 4) 
+  
+  colnames(df) <- tolower(gsub(" ", ".", colnames(df)))
+  
+  df <- df %>% 
+    pivot_longer(5:ncol(.), names_to = "year", values_to = "value") %>% 
+    filter(!is.null(value) & !is.na(value)) %>% 
+    mutate(country.code = factor(country.code), 
+           country.name = factor(country.name),
+           year = as.numeric(year)) %>% 
+    select(country.code, country.name, year, value)
+  
+  colnames(df)[4] <- value_name
+  
+  df
+}
+
+importRegionClass <- function(filepath) {
+  df <- read_csv(filepath, skip = 4) 
+  
+  colnames(df) <- tolower(gsub(" ", ".", colnames(df)))
+  
+  df %>% mutate(country.name = factor(country.name),
+                region = factor(region)) %>% 
+    select(country.name, reg = region)
+}
+
+importIncomeClass <- function(filepath) {
+  df <- read_csv(filepath, skip = 4) 
+  
+  colnames(df) <- tolower(gsub(" ", ".", colnames(df)))
+  
+  df %>% 
+    pivot_longer(3:ncol(.), names_to = "year", values_to = "income") %>% 
+    filter(!is.null(income) & !is.na(income)) %>% 
+    mutate(country.code = factor(country.code), 
+           country.name = factor(country.name), 
+           year = as.numeric(year), 
+           income = factor(income)) %>% 
+    select(country.code, country.name, year, income)
+}
+```
+
+```{r, message = F}
+# import and combine data
+setwd("../data")
+
+poverty.headcount <- importWDI("poverty.headcount.215dollar.csv", "pov")
+mpi <- importWDI("mpi.csv", "mpi")
+education.expenditure.total <- importWDI("total.education.expenditure.csv", "edu.total")
+education.expenditure.primary <- importWDI("primary.education.expenditure.csv", "edu.pri")
+education.expenditure.secondary <- importWDI("secondary.education.expenditure.csv", "edu.sec")
+education.expenditure.tertiary <- importWDI("tertiary.education.expenditure.csv", "edu.ter")
+health.expenditure <- importWDI("health.expenditure.csv", "hlth")
+military.expenditure <- importWDI("military.expenditure.csv", "mil")
+fdi <- importWDI("fdi.csv", "fdi")
+labour.force.participation <- importWDI("labour.force.participation.csv", "lbr.part")
+unemployment.rate <- importWDI("unemployment.csv", "unemp")
+population.growth <- importWDI("population.growth.csv", "pop.gwth.total")
+rural.population.growth <- importWDI("rural.population.growth.csv", "pop.gwth.rural")
+urban.population.growth <- importWDI("urban.population.growth.csv", "pop.gwth.urban")
+gdp.deflator <- importWDI("gdp.deflator.csv", "gdp.dflt")
+gender.equality <- importWDI("gender.equality.csv", "gdr.eql")
+gross.capital.formation <- importWDI("gross.capital.formation.csv", "gcf")
+trade <- importWDI("trade.csv", "trade")
+region.class <- importRegionClass("region.class.csv")
+income.class <- importIncomeClass("income.class.csv")
+
+setwd("../src")
+
+countries <- income.class %>% 
+  full_join(region.class, by = "country.name") %>% 
+  right_join(poverty.headcount, by = c("country.name", "country.code", "year")) %>%
+  full_join(mpi, by = c("country.name", "country.code", "year")) %>%
+  left_join(education.expenditure.total, by = c("country.name", "country.code", "year")) %>%
+  left_join(education.expenditure.primary, by = c("country.name", "country.code", "year")) %>%
+  left_join(education.expenditure.secondary, by = c("country.name", "country.code", "year")) %>%
+  left_join(education.expenditure.tertiary, by = c("country.name", "country.code", "year")) %>%
+  left_join(health.expenditure, by = c("country.name", "country.code", "year")) %>%
+  left_join(military.expenditure, by = c("country.name", "country.code", "year")) %>%
+  left_join(fdi, by = c("country.name", "country.code", "year")) %>%
+  left_join(labour.force.participation, by = c("country.name", "country.code", "year")) %>%
+  left_join(unemployment.rate, by = c("country.name", "country.code", "year")) %>%
+  left_join(population.growth, by = c("country.name", "country.code", "year")) %>%
+  left_join(rural.population.growth, by = c("country.name", "country.code", "year")) %>%
+  left_join(urban.population.growth, by = c("country.name", "country.code", "year")) %>%
+  left_join(gdp.deflator, by = c("country.name", "country.code", "year")) %>%
+  left_join(gender.equality, by = c("country.name", "country.code", "year")) %>%
+  left_join(gross.capital.formation, by = c("country.name", "country.code", "year")) %>%
+  left_join(trade, by = c("country.name", "country.code", "year"))
+```
+
+Data preview
+
+```{r}
+head(countries)
+str(countries)
+summary(countries)
+```
+
+## 2.2. Missing values
+
+As observed from the summary above, the data set contains a lot of missing values in some of the variables.
+
+```{r}
+nCompleteObs <- sum(complete.cases(countries))
+print(paste("No. of complete cases:", nCompleteObs))
+```
+
+There are only 3 complete cases where all the variable is available. This is nowhere near acceptable to conduct any meaningful analysis. Therefore, we need to eliminate some variables for a more balance data set.
+
+```{r}
+mean(is.na(countries))
+```
+
+About 23% of the data set is missing.
+
+```{r}
+missings <- colMeans(is.na(countries))
+ggplot(mapping = aes(x = names(missings), y = missings, fill = missings < 0.35)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Missing rate") +
+  xlab("variables") +
+  ylab("% missing") +
+  theme(axis.text.x = element_text(size=9, angle=90))
+```
+
+There are 5 variables with missing rate \>35%.
+
+```{r}
+missings[missings > 0.35]
+```
+
+These can be very useful and relevant information [@pubspend&pov]. However, we would like to exclude these variables from some first analyses to make use of the richer set of data. We can conduct a separate analysis with these variable to gain more insight.
+
+```{r}
+# variables with high missing rate
+hMiss <- names(missings[missings > 0.35])
+countries1 <- countries %>% select(!hMiss)
+str(countries1)
+```
+
+Re-evaluate the `countries1` set.
+
+```{r}
+mean(is.na(countries1))
+sum(complete.cases(countries1))
+mean(complete.cases(countries1))
+```
+
+On average, each column has 10% missing rate, that results in 916 complete data point (i.e. 38%).\
+This can be a sufficient number for the analysis. However, the missing data can induce loss of power due to the reduced sample size, and some other biases depending on which variables is missing. 
+```{r}
+countries1 %>% 
+  group_by(reg) %>% 
+  summarise(mean.complete = mean(complete.cases(.)))
+```
+The majority of missing values might be attribute to the inaccessibility of some economies, where data was not easy to be collected (e.g. Middle East & North Africa). Ironically, these countries with 

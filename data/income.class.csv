@@ -1,4 +1,8 @@
-Country Code,Country Name,1987,1988,1989,1990,1991,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,#NAME?,#NAME?,#NAME?,#NAME?,2020,2021
+Data Source,World Development Indicators,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Last Updated Date,2022-07-01,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Country Code,Country Name,1987,1988,1989,1990,1991,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021
 AFG,Afghanistan,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L
 ALB,Albania,,,,LM,LM,LM,L,L,L,LM,L,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,UM,UM,LM,UM,UM,UM,UM,UM,UM,UM,UM,UM,UM
 DZA,Algeria,UM,UM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,UM,UM,UM,UM,UM,UM,UM,UM,UM,UM,UM,LM,LM,LM
@@ -214,17 +218,12 @@ VEN,"Venezuela, RB",UM,UM,UM,UM,UM,UM,UM,LM,LM,LM,UM,UM,UM,UM,UM,UM,UM,UM,UM,UM,
 VNM,Vietnam,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM
 VIR,Virgin Islands (U.S.),H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H
 PSE,West Bank and Gaza,,,,,,,,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM
-YEM,"Yemen, Rep.",LM*,LM*,LM,LM,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,LM,LM,LM,LM,LM,LM,LM,LM,L,L,L,L,L
+YEM,"Yemen, Rep.",LM,LM,LM,LM,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,LM,LM,LM,LM,LM,LM,LM,LM,L,L,L,L,L
 ZMB,Zambia,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,L
 ZWE,Zimbabwe,LM,LM,LM,LM,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,L,LM,LM,LM,LM
-,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-,"* At this time, there were Yemen, PDR (L) and Yemen, Arab Rep. (LM); combined they would have been LM.",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 CSK,Czechoslovakia (former),,,,UM,UM,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 MYT,Mayotte,,,,H,UM,UM,UM,UM,UM,UM,UM,UM,UM,UM,UM,UM,UM,UM,UM,UM,UM,UM,UM,UM,,,,,,,,,,,
 ANT,Netherlands Antilles (former),UM,UM,UM,UM,UM,UM,UM,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,H,,,,,,,,,,,,
 YUG,Serbia and Montenegro (former),,,,,,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,LM,,,,,,,,,,,,,,,,
 SUN,USSR (former),,,,UM,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 YUGf,Yugoslavia (former),UM,UM,UM,UM,UM,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-,"Note: Income classifications are set each year on July 1 for all World Bank member economies, and all other economies with populations of more than 30,000. These official analytical classifications are fixed during the World Bank's fiscal year (ending on June 30), thus economies remain in the categories in which they are classified irrespective of any revisions to their per capita income data. The historical classifications shown are as published on July 1 of each fiscal year.",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

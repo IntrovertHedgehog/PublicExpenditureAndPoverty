@@ -8,14 +8,33 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-## Structure
+## Scrap
 1. We find the impact of gov expenditure effect on poverty using conventional definition of poverty
 2. We redo the analysis using MPI as indicator of poverty
 3. We conclude form the results obtained.
 4. Some surprising correlation we experimented with, and how these can be a product of different reasons
   1. Gender equality and poverty
   2. 
+  
+Refer to [guide to data analysis report](https://instruction.bus.wisc.edu/jfrees/jfreesbooks/Regression%20Modeling/BookWebDec2010/Writing/Chap20FreesRegBook03May2009.pdf)
+  
+## Structure
+1. Introduction
+2. Data Characteristic
+  6. Nature of data
+  2. Dictionary
+  3. Missing values
+    - Imbalance data, removing will be costly since a large portion is missing -> Imputation
+  4. Descriptive Analytics
+  5. Correlation
+  1. Source
+3. Model selection and interpretation
+  1. reference to other studies
+  2. Nature of data -> choice of model
+  3. plotting, foreshadowing the relationship
+4. Results
+5. Conclusion
+6. Appendix
 
 ## Reference
 
