@@ -29,9 +29,9 @@ income.class <- importIncomeClass("income.class.csv")
 
 setwd("..")
 
-countries <- income.class %>% 
-  full_join(region.class, by = "country.name") %>% 
-  right_join(poverty.headcount, by = c("country.name", "country.code", "year")) %>%
+countries <- poverty.headcount %>% 
+  left_join(income.class, c("country.name", "country.code", "year")) %>% 
+  left_join(region.class, by = "country.name") %>%
   full_join(mpi, by = c("country.name", "country.code", "year")) %>%
   left_join(education.expenditure.total, by = c("country.name", "country.code", "year")) %>%
   left_join(education.expenditure.primary, by = c("country.name", "country.code", "year")) %>%
@@ -49,6 +49,12 @@ countries <- income.class %>%
   left_join(gender.equality, by = c("country.name", "country.code", "year")) %>%
   left_join(gross.capital.formation, by = c("country.name", "country.code", "year")) %>%
   left_join(trade, by = c("country.name", "country.code", "year"))
+
+d <- poverty.headcount %>% select(country.name, country.code) %>% mutate(isPov = T) %>%  
+  full_join(income.class %>% select(country.name, country.code) %>% mutate(isIncome = T), by = "country.name") %>%  
+  full_join(region.class %>% select(country.name) %>% mutate(isReg = T), by = "country.name") 
+
+d %>% filter(is.na(isIncome) | is.na(isIncome)) %>% distinct(country.name)
 
 cor_matrix <- cor(countries[, 6:23], use = "complete.obs")
 print(cor_matrix, 2)
@@ -76,4 +82,46 @@ sum(complete.cases(dataset))
 lrm <- lm(pov ~ ., dataset)
 summary(lrm)
 plot(lrm)
+
+
+poverty.headcount <- poverty.headcount %>%
+  mutate(country.name = correctName(country.name))
+mpi <- mpi %>%
+  mutate(country.name = correctName(country.name))
+education.expenditure.total <- education.expenditure.total %>%
+  mutate(country.name = correctName(country.name))
+education.expenditure.primary <- education.expenditure.primary %>%
+  mutate(country.name = correctName(country.name))
+education.expenditure.secondary <- education.expenditure.secondary %>%
+  mutate(country.name = correctName(country.name))
+education.expenditure.tertiary <- education.expenditure.tertiary %>%
+  mutate(country.name = correctName(country.name))
+health.expenditure <- health.expenditure %>%
+  mutate(country.name = correctName(country.name))
+military.expenditure <- military.expenditure %>%
+  mutate(country.name = correctName(country.name))
+fdi <- fdi %>%
+  mutate(country.name = correctName(country.name))
+labour.force.participation <- labour.force.participation %>%
+  mutate(country.name = correctName(country.name))
+unemployment.rate <- unemployment.rate %>%
+  mutate(country.name = correctName(country.name))
+population.growth <- population.growth %>%
+  mutate(country.name = correctName(country.name))
+rural.population.growth <- rural.population.growth %>%
+  mutate(country.name = correctName(country.name))
+urban.population.growth <- urban.population.growth %>%
+  mutate(country.name = correctName(country.name))
+gdp.deflator <- gdp.deflator %>%
+  mutate(country.name = correctName(country.name))
+gender.equality <- gender.equality %>%
+  mutate(country.name = correctName(country.name))
+gross.capital.formation <- gross.capital.formation %>%
+  mutate(country.name = correctName(country.name))
+trade <- trade %>%
+  mutate(country.name = correctName(country.name))
+region.class <- region.class %>%
+  mutate(country.name = correctName(country.name))
+income.class <- income.class %>%
+  mutate(country.name = correctName(country.name))
 

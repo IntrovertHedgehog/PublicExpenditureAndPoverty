@@ -8,6 +8,16 @@ bibliography: citations.bib
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
+```
+
+```{r, message = F}
+# required library
+library(knitr)
+library(readr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
 ```
 
 # 2. Data Characteristic
@@ -45,15 +55,6 @@ The data set is collection The World Bank Data, the variables of interest are ex
 23. **trade**: Trade = import + export (% of GDP)
 
 Data imports and combining:
-
-```{r, message = F}
-# required library
-library(knitr)
-library(readr)
-library(tidyr)
-library(dplyr)
-library(ggplot2)
-```
 
 ```{r}
 # helper functions
@@ -102,7 +103,7 @@ importIncomeClass <- function(filepath) {
 ```
 
 ```{r, message = F}
-# import and combine data
+# import data
 setwd("../data")
 
 poverty.headcount <- importWDI("poverty.headcount.215dollar.csv", "pov")
@@ -127,11 +128,152 @@ region.class <- importRegionClass("region.class.csv")
 income.class <- importIncomeClass("income.class.csv")
 
 setwd("../src")
+```
 
-countries <- income.class %>% 
-  full_join(region.class, by = "country.name") %>% 
-  right_join(poverty.headcount, by = c("country.name", "country.code", "year")) %>%
+We found that the data sets collected from [World Bank's Data helpdesk](https://datahelpdesk.worldbank.org/knowledgebase/articles/906519-world-bank-country-and-lending-groups) and [The World Bank's Data](https://data.worldbank.org/) have different naming convention for certain countries (e.g. "Czechia" vs. "Czechnia Republic"). So we need to rename these countries to avoid some error when joining.
+
+Furthermore, WDI's data sets rate also account for non-country (e.g. country.name = "Low income" or "South Asia"). These special groups are not in our scope of interest, which is national, so we eliminate them.
+
+```{r}
+# using poverty.headcount as a naming standard (as other data from WDI also use this convention)
+# join a subset of data to process the names
+d <- poverty.headcount %>%
+  select(country.name) %>%
+  mutate(inPov = T) %>%  
+  full_join(income.class %>% 
+              select(country.name) %>% 
+              mutate(inIncome = T), by = "country.name") %>%  
+  full_join(region.class %>%
+              select(country.name) %>% 
+              mutate(inReg = T), by = "country.name") %>% 
+  mutate(inPov = !is.na(inPov), inIncome = !is.na(inIncome), inReg = !is.na(inReg))
+
+d
+```
+
+First, remove special economic groups from `poverty.headcount`. We figured these regions will not appear in `income.class` or `region.class`, so we might find something from looking at the countries **only** appear in `poverty.headcount`.
+
+```{r}
+d %>% filter(inPov & (!inIncome | !inReg)) %>% distinct(country.name)
+```
+
+Lucky! We can look through these 18 results and compose a list of special regions.
+
+```{r}
+spec.reg <- c("Fragile and conflict affected situations", "IDA total", "World", "East Asia & Pacific", "Europe & Central Asia", "Latin America & Caribbean", "Middle East & North Africa", "South Asia", "Sub-Saharan Africa", "Low income", "Low & middle income", "Lower middle income", "Upper middle income", "High income")
+```
+
+Then, we rename those countries with inconsistent naming convention. Since we should only care about countries whose poverty headcount is available, reusing the list generated above, we can identify:
+
+1.  Cote d'Ivoire (also Côte d'Ivoire)
+2.  Czechia (also Czechoslovakia or Czech Republic)
+3.  Curacao (also Curaçao)
+4.  Turkiye (formerly known as Turkey, also Türkiye)
+5.  Sao Tome and Principe (also São Tomé and Príncipe)
+
+```{r}
+# mapping standard name and variation
+nameMap <- tibble(standard = c("Cote d'Ivoire", "Czechia", "Czechia", "Curacao", "Turkiye", "Turkiye", "Sao Tome and Principe"), variation = c("Côte d'Ivoire", "Czechoslovakia", "Czech Republic", "Curaçao", "Turkey", "Türkiye", "São Tomé and Príncipe"))
+
+correctName <- function(name) {
+  tibble(name = name) %>% 
+    left_join(nameMap, by = c("name" = "variation")) %>% 
+    mutate(standard = ifelse(is.na(standard), name, standard)) %>% 
+    select(standard) %>% 
+    pull()
+}
+
+orig.name <- c("Vietnam", "China", "Turkey", "Czechia Republic")
+correctName(orig.name)
+```
+
+Let's test this out!
+
+```{r}
+d <- poverty.headcount %>%
+  # correct name here
+  mutate(country.name = correctName(country.name)) %>% 
+  select(country.name) %>%
+  mutate(inPov = T) %>%
+  full_join(income.class %>% 
+              # correct name here
+              mutate(country.name = correctName(country.name)) %>% 
+              select(country.name) %>% 
+              mutate(inIncome = T), by = "country.name") %>%  
+  full_join(region.class %>%
+              # correct name here
+              mutate(country.name = correctName(country.name)) %>% 
+              select(country.name) %>% 
+              mutate(inReg = T), by = "country.name") %>% 
+  filter(!(country.name %in% spec.reg)) %>% 
+  mutate(inPov = !is.na(inPov), inIncome = !is.na(inIncome), inReg = !is.na(inReg))
+
+# countries not in region list, but is in Pov list
+d %>% 
+  filter(!inReg & inPov) %>% 
+  distinct(country.name) %>% 
+  nrow()
+# countries not in income list, but is in Pov list
+d %>% 
+  filter(!inIncome & inPov) %>% 
+  distinct(country.name) %>% 
+  nrow()
+```
+
+We are *pretty* confident that there's no inconsistent naming left unprocessed in the data sets.
+
+```{r}
+# Rename countries in all data sets.
+poverty.headcount <- poverty.headcount %>%
+  mutate(country.name = correctName(country.name))
+mpi <- mpi %>%
+  mutate(country.name = correctName(country.name))
+education.expenditure.total <- education.expenditure.total %>%
+  mutate(country.name = correctName(country.name))
+education.expenditure.primary <- education.expenditure.primary %>%
+  mutate(country.name = correctName(country.name))
+education.expenditure.secondary <- education.expenditure.secondary %>%
+  mutate(country.name = correctName(country.name))
+education.expenditure.tertiary <- education.expenditure.tertiary %>%
+  mutate(country.name = correctName(country.name))
+health.expenditure <- health.expenditure %>%
+  mutate(country.name = correctName(country.name))
+military.expenditure <- military.expenditure %>%
+  mutate(country.name = correctName(country.name))
+fdi <- fdi %>%
+  mutate(country.name = correctName(country.name))
+labour.force.participation <- labour.force.participation %>%
+  mutate(country.name = correctName(country.name))
+unemployment.rate <- unemployment.rate %>%
+  mutate(country.name = correctName(country.name))
+population.growth <- population.growth %>%
+  mutate(country.name = correctName(country.name))
+rural.population.growth <- rural.population.growth %>%
+  mutate(country.name = correctName(country.name))
+urban.population.growth <- urban.population.growth %>%
+  mutate(country.name = correctName(country.name))
+gdp.deflator <- gdp.deflator %>%
+  mutate(country.name = correctName(country.name))
+gender.equality <- gender.equality %>%
+  mutate(country.name = correctName(country.name))
+gross.capital.formation <- gross.capital.formation %>%
+  mutate(country.name = correctName(country.name))
+trade <- trade %>%
+  mutate(country.name = correctName(country.name))
+region.class <- region.class %>%
+  mutate(country.name = correctName(country.name))
+income.class <- income.class %>%
+  mutate(country.name = correctName(country.name))
+```
+
+Join the data
+
+```{r, message = F}
+countries <- poverty.headcount %>% 
+  # We used a full join here so we can conduct a separate analysis on mpi later
   full_join(mpi, by = c("country.name", "country.code", "year")) %>%
+  left_join(income.class, c("country.name", "country.code", "year")) %>% 
+  left_join(region.class, by = "country.name") %>%
   left_join(education.expenditure.total, by = c("country.name", "country.code", "year")) %>%
   left_join(education.expenditure.primary, by = c("country.name", "country.code", "year")) %>%
   left_join(education.expenditure.secondary, by = c("country.name", "country.code", "year")) %>%
@@ -147,7 +289,9 @@ countries <- income.class %>%
   left_join(gdp.deflator, by = c("country.name", "country.code", "year")) %>%
   left_join(gender.equality, by = c("country.name", "country.code", "year")) %>%
   left_join(gross.capital.formation, by = c("country.name", "country.code", "year")) %>%
-  left_join(trade, by = c("country.name", "country.code", "year"))
+  left_join(trade, by = c("country.name", "country.code", "year")) %>% 
+  # filter special groups
+  filter(!(country.name %in% spec.reg))
 ```
 
 Data preview
@@ -158,9 +302,17 @@ str(countries)
 summary(countries)
 ```
 
+There's no NA in `reg`, which is a sign that all naming in the data is remedied. There's some expected NAs in `income` and `pov`, as these data are collected by year. There's a substantial amount of missing data in `mpi`, as this is a relative new concept. We will address the nature, and processing of missing data in the next sections.
+
 ## 2.2. Missing values
 
 As observed from the summary above, the data set contains a lot of missing values in some of the variables.
+
+```{r}
+mean(is.na(countries))
+```
+
+About 19% of the data set is missing.
 
 ```{r}
 nCompleteObs <- sum(complete.cases(countries))
@@ -170,12 +322,6 @@ print(paste("No. of complete cases:", nCompleteObs))
 There are only 3 complete cases where all the variable is available. This is nowhere near acceptable to conduct any meaningful analysis. Therefore, we need to eliminate some variables for a more balance data set.
 
 ```{r}
-mean(is.na(countries))
-```
-
-About 23% of the data set is missing.
-
-```{r}
 missings <- colMeans(is.na(countries))
 ggplot(mapping = aes(x = names(missings), y = missings, fill = missings < 0.35)) +
   geom_bar(stat = "identity") +
@@ -183,19 +329,18 @@ ggplot(mapping = aes(x = names(missings), y = missings, fill = missings < 0.35))
   xlab("variables") +
   ylab("% missing") +
   theme(axis.text.x = element_text(size=9, angle=90))
+
+missings[missings > 0.35]
 ```
 
 There are 5 variables with missing rate \>35%.
-
-```{r}
-missings[missings > 0.35]
-```
 
 These can be very useful and relevant information [@pubspend&pov]. However, we would like to exclude these variables from some first analyses to make use of the richer set of data. We can conduct a separate analysis with these variable to gain more insight.
 
 ```{r}
 # variables with high missing rate
 hMiss <- names(missings[missings > 0.35])
+# exclude these variables in countries1
 countries1 <- countries %>% select(!hMiss)
 str(countries1)
 ```
@@ -208,11 +353,48 @@ sum(complete.cases(countries1))
 mean(complete.cases(countries1))
 ```
 
-On average, each column has 10% missing rate, that results in 916 complete data point (i.e. 38%).\
-This can be a sufficient number for the analysis. However, the missing data can induce loss of power due to the reduced sample size, and some other biases depending on which variables is missing. 
+On average, each column has 6% missing rate, results in 937 complete data point (i.e. 49%). This can be a sufficient number for the analysis. However, the missing data can induce loss of power due to the reduced sample size, and some other biases depending on which variables is missing.
+
 ```{r}
+# complete rate of data by regions
 countries1 %>% 
+  mutate(isComplete = complete.cases(.)) %>% 
   group_by(reg) %>% 
-  summarise(mean.complete = mean(complete.cases(.)))
+  summarise(complete.rate = mean(isComplete)) %>% 
+  arrange(desc(complete.rate))
 ```
-The majority of missing values might be attribute to the inaccessibility of some economies, where data was not easy to be collected (e.g. Middle East & North Africa). Ironically, these countries with 
+
+Countries from North America, Sub-Saharan Africa, and South Asia have the highest rate of missing data. We suspect that Sub-Saharan Africa, and South Asia are comparably less accessible regions. We also know that Americans don't like filling out forms, so their high rate of missing data is understandable as well.
+
+Still, we need to find a way to address this issue. we propose several approaches:
+
+1.  **Use complete cases**: Only use the complete cases for the analysis. This is a straightforward approach, but doesn't resolve the bias resulted from the mass loss of data.
+2.  **Step-by-step remove frequently missing variables**: The same as we did before, but this process should be carried out carefully as we run the chance of dropping an important variable.
+3.  **Update the data set as we select variables**: As we drop insignificant variables (in backward selection), the number of NAs are changed as well. We can utilize the extra complete cases to build the next model in the steps.
+4.  **Imputation**: The idea is to replace the missing observations on the response or the predictors with artificial values that try to preserve the data set structure. This is a quite complex topic of its own, but we think why not. You can read more at from @imputation.
+
+## 2.3. Descriptive Analytics
+
+## 2.4. Data Source
+
+- [poverty.headcount](https://data.worldbank.org/indicator/SI.POV.DDAY)
+- [mpi](https://data.worldbank.org/indicator/SI.POV.MDIM.XQ)
+- [education.expenditure.primary](https://data.worldbank.org/indicator/SE.XPD.PRIM.ZS)
+- [education.expenditure.secondary](https://data.worldbank.org/indicator/SE.XPD.SECO.ZS)
+- [education.expenditure.tertiary](https://data.worldbank.org/indicator/SE.XPD.TERT.ZS)
+- [education.expenditure.total](https://data.worldbank.org/indicator/SE.XPD.TOTL.GD.ZS)
+- [health.expenditure](https://data.worldbank.org/indicator/SH.XPD.GHED.GD.ZS)
+- [military.expenditure](https://data.worldbank.org/indicator/MS.MIL.XPND.GD.ZS)
+- [fdi](https://data.worldbank.org/indicator/BX.KLT.DINV.CD.WD)
+- [unemployment.rate](https://data.worldbank.org/indicator/SL.UEM.TOTL.NE.ZS)
+- [labour.force.participation](https://data.worldbank.org/indicator/SL.TLF.CACT.NE.ZS)
+- [gender.equality](https://data.worldbank.org/indicator/IQ.CPA.GNDR.XQ)
+- [population.growth](https://data.worldbank.org/indicator/SP.POP.GROW)
+- [urban.population.growth](https://data.worldbank.org/indicator/SP.URB.GROW)
+- [rural.population.growth](https://data.worldbank.org/indicator/SP.RUR.TOTL.ZG)
+- [gdp.deflator](https://data.worldbank.org/indicator/NY.GDP.DEFL.KD.ZG)
+- [gross capital formation](https://data.worldbank.org/indicator/NE.GDI.TOTL.ZS)
+- [trade](https://data.worldbank.org/indicator/NE.TRD.GNFS.ZS)
+- [region.class](https://datatopics.worldbank.org/world-development-indicators/the-world-by-income-and-region.html)
+- [income.class](https://datahelpdesk.worldbank.org/knowledgebase/articles/906519-world-bank-country-and-lending-groups)
+- [gross.capital.formation](https://data.worldbank.org/indicator/NE.GDI.TOTL.ZS)
