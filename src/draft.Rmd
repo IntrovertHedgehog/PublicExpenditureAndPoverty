@@ -20,6 +20,8 @@ library(dplyr)
 library(ggplot2)
 ```
 
+# 1. Introduction (To be done)
+
 # 2. Data Characteristic
 
 ## 2.1. Nature of Data
