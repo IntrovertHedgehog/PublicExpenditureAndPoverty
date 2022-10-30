@@ -369,12 +369,12 @@ Countries from North America, Sub-Saharan Africa, and South Asia have the highes
 Still, we need to find a way to address this issue. we propose several approaches:
 
 1.  **Use complete cases**: Only use the complete cases for the analysis. This is a straightforward approach, but doesn't resolve the bias resulted from the mass loss of data.
-2.  **Step-by-step remove frequently missing variables**: The same as we did before, but this process should be carried out carefully as we run the chance of dropping an important variable.
+2.  **Selectively remove variables with high missing rate**: The same as we did before, but this process should be carried out carefully as we run the chance of dropping an important variable.
 3.  **Update the data set as we select variables**: As we drop insignificant variables (in backward selection), the number of NAs are changed as well. We can utilize the extra complete cases to build the next model in the steps.
 4.  **Imputation**: The idea is to replace the missing observations on the response or the predictors with artificial values that try to preserve the data set structure. This is a quite complex topic of its own, but we think why not. You can read more at from @imputation.
 
 ## 2.3. Descriptive Analytics
-
+(To be done)
 ## 2.4. Data Source
 
 - [poverty.headcount](https://data.worldbank.org/indicator/SI.POV.DDAY)
@@ -398,3 +398,36 @@ Still, we need to find a way to address this issue. we propose several approache
 - [region.class](https://datatopics.worldbank.org/world-development-indicators/the-world-by-income-and-region.html)
 - [income.class](https://datahelpdesk.worldbank.org/knowledgebase/articles/906519-world-bank-country-and-lending-groups)
 - [gross.capital.formation](https://data.worldbank.org/indicator/NE.GDI.TOTL.ZS)
+
+# 3. Model Selection and Interpretation
+## 3.1. Assumption Check (To be done)
+
+## 3.2. Ordinary Multiple Linear Regression
+
+We conduct a normal linear regression, following the approaches mentioned above to address missing values issues.
+
+### 3.2.1. Use Complete Cases (To be done)
+#### 3.2.1.1. Model Fitting
+#### 3.2.1.2. Assessment
+#### 3.2.1.3. Interpretation
+
+### 3.2.2. Selectively remove variables with high missing rate (To be done)
+#### 3.2.2.1. Model Fitting
+#### 3.2.2.2. Assessment
+#### 3.2.2.3. Interpretation
+
+### 3.2.3. Update the data set as we select variables (To be done)
+#### 3.2.3.1. Model Fitting
+#### 3.2.3.2. Assessment
+#### 3.2.3.3. Interpretation
+
+### 3.2.4. Imputation (To be done)
+#### 3.2.4.1. Model Fitting
+#### 3.2.4.2. Assessment
+#### 3.2.4.3. Interpretation
+
+## 3.3. Panel Data Analysis (To be done)
+
+# 4. Conclusion
+# 5. Appendix
+# 6. References
