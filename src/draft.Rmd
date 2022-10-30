@@ -2,7 +2,10 @@
 title: "Draft Documents"
 author: "Team 1 (Hedgehog, Callista, Imtiyaaz, Issac)"
 date: "`r Sys.Date()`"
-output: pdf_document
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 bibliography: citations.bib
 ---
 
@@ -337,7 +340,7 @@ missings[missings > 0.35]
 
 There are 5 variables with missing rate \>35%.
 
-These can be very useful and relevant information [@pubspend&pov]. However, we would like to exclude these variables from some first analyses to make use of the richer set of data. We can conduct a separate analysis with these variable to gain more insight.
+expenditure in primary, secondary, and tertiary edication can be very useful and relevant information to predict poverty reduction [@pubspend&pov]. However, we would like to exclude these variables from some first analyses to make use of the richer set of data. We can conduct a separate analysis with these variable to gain more insight.
 
 ```{r}
 # variables with high missing rate
@@ -375,8 +378,8 @@ Still, we need to find a way to address this issue. we propose several approache
 3.  **Update the data set as we select variables**: As we drop insignificant variables (in backward selection), the number of NAs are changed as well. We can utilize the extra complete cases to build the next model in the steps.
 4.  **Imputation**: The idea is to replace the missing observations on the response or the predictors with artificial values that try to preserve the data set structure. This is a quite complex topic of its own, but we think why not. You can read more at from @imputation.
 
-## 2.3. Descriptive Analytics
-(To be done)
+## 2.3. Descriptive Analytics (To be done)
+
 ## 2.4. Data Source
 
 - [poverty.headcount](https://data.worldbank.org/indicator/SI.POV.DDAY)
