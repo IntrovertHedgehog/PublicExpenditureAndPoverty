@@ -58,6 +58,7 @@ The data set is collection The World Bank Data, the variables of interest are ex
 21. **gdr.eql**: Gender equality rating\
 22. **gcf**: Gross Capital Formation\
 23. **trade**: Trade = import + export (% of GDP)
+24. **gdp.pc**: GDP per capita (current US$)
 
 Data imports and combining:
 
@@ -131,6 +132,7 @@ gross.capital.formation <- importWDI("gross.capital.formation.csv", "gcf")
 trade <- importWDI("trade.csv", "trade")
 region.class <- importRegionClass("region.class.csv")
 income.class <- importIncomeClass("income.class.csv")
+gdp.pc <- importWDI("gdp.pc.csv", "gdp.pc")
 
 setwd("../src")
 ```
@@ -269,6 +271,8 @@ region.class <- region.class %>%
   mutate(country.name = correctName(country.name))
 income.class <- income.class %>%
   mutate(country.name = correctName(country.name))
+gdp.pc <- gdp.pc %>%
+  mutate(country.name = correctName(country.name))
 ```
 
 Join the data
@@ -295,6 +299,7 @@ countries <- poverty.headcount %>%
   left_join(gender.equality, by = c("country.name", "country.code", "year")) %>%
   left_join(gross.capital.formation, by = c("country.name", "country.code", "year")) %>%
   left_join(trade, by = c("country.name", "country.code", "year")) %>% 
+  left_join(gdp.pc, by = c("country.name", "country.code", "year")) %>% 
   # filter special groups
   filter(!(country.name %in% spec.reg))
 ```
@@ -378,7 +383,13 @@ Still, we need to find a way to address this issue. we propose several approache
 3.  **Update the data set as we select variables**: As we drop insignificant variables (in backward selection), the number of NAs are changed as well. We can utilize the extra complete cases to build the next model in the steps.
 4.  **Imputation**: The idea is to replace the missing observations on the response or the predictors with artificial values that try to preserve the data set structure. This is a quite complex topic of its own, but we think why not. You can read more at from @imputation.
 
-## 2.3. Descriptive Analytics (To be done)
+## 2.3. Descriptive Analytics
+Distribution of the predicted variable `pov`
+```{r}
+ggplot(countries, aes(x = pov)) +
+  geom_bar()
+```
+
 
 ## 2.4. Data Source
 
