@@ -1,0 +1,41 @@
+---
+title: "Imtiyaaz"
+output: html_document
+date: "2022-11-03"
+---
+```{r}
+library(tidyverse) # for data manipulations and visualisations
+library(ggpubr) # for correlation coefficient on plot
+library(gridExtra) # for arranging plots 
+library(e1071) # for skewness
+```
+
+
+
+```{r}
+df <-read.csv('data/countries.csv' , ,sep = "", header = TRUE)
+df
+subset1 <- df %>% select("income","edu.total","edu.pri","edu.sec","edu.ter","hlth","mil","fdi","lbr.part","unemp","pop.gwth.total","pop.gwth.rural","pop.gwth.urban","gdp.dflt","gdr.eql","gcf","trade")
+
+```
+
+
+
+```{r}
+set.seed(10)
+index <- sort(sample(x = nrow(subset1), size = nrow(subset1)*.8))
+train <- df[index, ]
+test <- df[-index, ]
+```
+
+
+
+
+
+
+
+```{r}
+lm.slr <- lm(pov ~ income+edu.total+edu.pri+edu.sec+edu.ter+hlth+mil+fdi+lbr.part+unemp+pop.gwth.total+pop.gwth.rural+pop.gwth.urban+gdp.dflt+gdr.eql+gcf+trade,data = train)
+summary(lm.slr)
+
+```
