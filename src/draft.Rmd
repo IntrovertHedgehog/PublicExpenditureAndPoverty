@@ -21,6 +21,8 @@ library(readr)
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+library(e1071)
+library(moments)
 ```
 
 # 1. Introduction (To be done)
@@ -433,14 +435,25 @@ ggplot(pov.reg %>% filter(country.code == "WLD"),
 An overall very steady decrease of poverty. How about each region?
 
 ```{r}
-ggplot(pov.reg,
+ggplot(pov.reg %>% filter(country.code != "WLD"),
        aes(x = year, y = pov, color = country.name)) +
   geom_point() +
   geom_smooth() +
   facet_grid(rows = vars(type))
 ```
 
-There's a general steady, but distinct decline of poverty over time in each type of region.
+There's a general steady, but distinct decline of poverty over time in each type region of respective type. Latin America & Caribbean, Europe & Central Asia, Middle East & North Africa, and High Income group has a more gradual decline as they are not very poor to begin with.  
+
+Among the income groups, Low & Middle Income, Lower & Middle Income, and Upper Middle Income have quite similar in term of poverty indicator and slope over the year. While these values vary greatly among different geographical regions.  
+
+Let's see some important statistics
+
+```{r}
+stats <- poverty.headcount %>% 
+  summarise(count = n(), skewness = skewness(pov), kurtosis = kurtosis(pov), std.deviation = sd(pov))
+
+kable(stats)
+```
 
 ## 2.4. Data Source
 
