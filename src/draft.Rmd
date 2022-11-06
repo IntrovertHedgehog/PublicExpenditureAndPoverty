@@ -40,7 +40,7 @@ The data set is collection The World Bank Data, the variables of interest are ex
     -   Upper middle income (UM)\
     -   High income (H)\
 5.  **reg**: Region\
-6.  **pov**: Poverty headcount ratio\
+6.  **pov**: Poverty headcount ratio based on cut-off value of $2.15 per day\
 7.  **mpi**: Multidimensional Poverty Index\
 8.  **edu.total**: Total expenditure on education (% of GDP)\
 9.  **edu.pri**: Total expenditure on primary education (% of total education expenditure)\
@@ -387,9 +387,60 @@ Still, we need to find a way to address this issue. we propose several approache
 Distribution of the predicted variable `pov`
 ```{r}
 ggplot(countries, aes(x = pov)) +
-  geom_bar()
+  geom_histogram(aes(y = ..density..)) +
+  geom_density(alpha = .2, fill = "blue")
+```
+The graph displays a decreasing rate as poverty indicator increasing. This might not be representative of the current state of poverty in the world, but of the number presented in our data. For example, more recent data is likely to be more inclusive than ancient data, when poverty is more prevalent. We should look at data from the same period.
+
+```{r}
+# pov data from 1998 and 2018
+pov.98.18 <- poverty.headcount %>%
+  filter(year == 1998 | year == 2018)
+pov.98.18 %>% 
+  group_by(year) %>% 
+  summarise(sum = n())
+
+ggplot(pov.98.18, aes(x = pov)) +
+  geom_histogram(aes(y = ..density..)) +
+  geom_density(alpha = .2, fill = "blue") +
+  facet_grid(cols = vars(year))
 ```
 
+The graph for 1998 has a much gentler slope, meaning poverty was more popular during that time, as predicted from out intuition. What about the general progress of the world?
+
+```{r}
+# Re-import pov and only take special regions
+# geographic
+geo.regs <- c("EAS", "ECS", "LCN", "MEA", "SAS", "SSF", "WLD")
+# economics
+eco.regs <- c("HIC", "LIC", "LMC", "LMY", "UMC")
+
+pov.reg <- importWDI("../data/poverty.headcount.215dollar.csv", "pov") %>% 
+  filter(country.code %in% c(geo.regs, eco.regs)) %>% 
+  mutate(type = ifelse(country.code %in% geo.regs, "Geographic", "Economics"))
+
+pov.reg %>%
+  distinct(country.code, country.name, type) %>% 
+  arrange(type)
+
+# World
+ggplot(pov.reg %>% filter(country.code == "WLD"),
+       aes(x = year, y = pov)) +
+  geom_point() +
+  geom_smooth()
+```
+
+An overall very steady decrease of poverty. How about each region?
+
+```{r}
+ggplot(pov.reg,
+       aes(x = year, y = pov, color = country.name)) +
+  geom_point() +
+  geom_smooth() +
+  facet_grid(rows = vars(type))
+```
+
+There's a general steady, but distinct decline of poverty over time in each type of region.
 
 ## 2.4. Data Source
 
