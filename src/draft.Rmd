@@ -7,10 +7,11 @@ output:
   html_document:
     df_print: paged
 bibliography: citations.bib
+urlcolor: blue
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = F)
 knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
 ```
 
@@ -23,6 +24,7 @@ library(dplyr)
 library(ggplot2)
 library(e1071)
 library(moments)
+library("PerformanceAnalytics")
 ```
 
 # 1. Introduction (To be done)
@@ -37,10 +39,10 @@ The data set is collection The World Bank Data, the variables of interest are ex
 2.  **country.name**: Country name\
 3.  **year**: Year\
 4.  **income**: Income class
-    -   Low income (L)\
-    -   Lower middle income (LM)\
-    -   Upper middle income (UM)\
-    -   High income (H)\
+-   Low income (L)\
+-   Lower middle income (LM)\
+-   Upper middle income (UM)\
+-   High income (H)\
 5.  **reg**: Region\
 6.  **pov**: Poverty headcount ratio based on cut-off value of $2.15 per day\
 7.  **mpi**: Multidimensional Poverty Index\
@@ -395,6 +397,10 @@ ggplot(countries, aes(x = pov)) +
 The graph displays a decreasing rate as poverty indicator increasing. This might not be representative of the current state of poverty in the world, but of the number presented in our data. For example, more recent data is likely to be more inclusive than ancient data, when poverty is more prevalent. We should look at data from the same period.
 
 ```{r}
+# number of data point available from 1967 to 2021
+ggplot(poverty.headcount, aes(x = year)) +
+  geom_histogram()
+
 # pov data from 1998 and 2018
 pov.98.18 <- poverty.headcount %>%
   filter(year == 1998 | year == 2018)
@@ -480,7 +486,126 @@ kable(stats)
 - [gross.capital.formation](https://data.worldbank.org/indicator/NE.GDI.TOTL.ZS)
 
 # 3. Model Selection and Interpretation
-## 3.1. Assumption Check (To be done)
+## 3.1. Assumption Check
+We can conduct some preliminary checks on linearity and correlation of predictors to have a better picture of the data. [Checklist](https://godatadrive.com/blog/basic-guide-to-test-assumptions-of-linear-regression-in-r)
+**1. Linear relationship:**  
+Use correlation matrix to check linearity
+```{r, warning = FALSE}
+# select only numeric data
+countries.num <- countries %>% select(where(is.numeric))
+chart.Correlation(countries.num, histogram = TRUE, pch = 19)
+```
+Which is utterly intelligible, but a majority of the fitted lines are linear at first glance. We should render separate graphs for the relationship between `pov` & other variables.
+```{r}
+# lengthen data table to variable-value pairs, with pov as predicted variable and others as predictive 
+countries.num2 <- countries.num %>% 
+  pivot_longer(cols = 3:ncol(.), names_to = "variable", values_to = "value") %>% 
+  filter(!is.na(value) & !is.na(pov))
+
+drawGraph <- function(indvar, data) {
+  ggplot(data %>% 
+           filter(variable == indvar),
+         aes(x = value, y = pov)) +
+    geom_point() +
+    geom_smooth(method = lm) +
+    labs(title = paste("Relationship pov ~", indvar),
+         x = indvar,
+         y = "pov")
+}
+
+ivs <- distinct(countries.num2, variable)[[1]]
+
+for (indvar in ivs) {
+  print(
+    ggplot(countries.num2 %>% 
+           filter(variable == indvar),
+         aes(x = value, y = pov)) +
+    geom_point() +
+    geom_smooth(method = lm) +
+    labs(title = paste("Relationship pov ~", indvar),
+         x = indvar,
+         y = "pov")
+  )
+}
+```
+
+Most variables display linear relationship with some exceptions, which are more appropriate to assume a logarithmic relationship. Gender equality should be viewed as a categorical data.
+```{r}
+logIvs <- c("fdi", "gdp.dflt", "gdp.pc")
+
+for (indvar in logIvs) {
+  print(
+    ggplot(countries.num2 %>% 
+           filter(variable == indvar),
+         aes(x = log(value), y = pov)) +
+    geom_point() +
+    geom_smooth(method = lm) +
+    labs(title = paste0("Relationship pov ~ log(", indvar, ")"),
+         x = paste0("log(", indvar, ")"),
+         y = "pov")
+  )
+}
+```
+
+The relationship are more linear after the transformation.
+
+```{r}
+gdr.eql <- countries.num2 %>% 
+  filter(variable == "gdr.eql") %>% 
+  mutate(value = factor(value))
+
+ggplot(gdr.eql,
+       aes(x = value, y = pov)) +
+  geom_boxplot() +
+  geom_smooth(method = lm) +
+  labs(title = paste("Relationship pov ~ gdr.eql"),
+       x = "gdr.eql",
+       y = "pov")
+```
+There's a significant correlation between gender equality and poverty.  
+Correlation coefficients between `pov` and predictors.
+
+```{r}
+# transform some variables
+countries.num3 <- countries.num %>% 
+  mutate(lfdi = log(fdi), lgdp.dflt = log(gdp.dflt), lgdp.pc = log(gdp.pc)) %>% 
+  mutate(lfdi = ifelse(is.nan(lfdi) | lfdi == -Inf, NA, lfdi))
+
+# name of the independent variables
+cn <- colnames(countries.num3)[-c(1,2)]
+
+corWithPov <- function(indevar, data) {
+  cor(data[[indevar]], data[["pov"]], use = "complete.obs")
+}
+
+cor.pov <- sapply(cn, corWithPov, data = countries.num3)
+kable(cor.pov)
+```
+
+`edu.ter`, `mil`, `fdi`, `lbr.part`, `unemp`, `gdp.dflt`, `gcf` have negligible correlation with `pov`. `lgdp.pc`, `lfdi`, and `lgdp.dflt` have stronger linear relationship with `pov` than their un-transformed counterparts.
+
+**2. Predictors are independent**
+There should be no correlation/multicolinearity between each pair of predictors.
+
+```{r}
+countries.arr <- simplify2array(countries.num %>% 
+                                  select(-c("year", "pov")))
+
+cor.mtx <- rcorr(countries.arr, type = "spearman")
+
+round(cor.mtx$r, 2)
+
+corrplot(cor.mtx$r, type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+```
+Some significant correlations can be found between `gdr.eql` with `edu.pri`, `pop.gwth.total`, and `fdi` with `mil`, etc.  
+We expect these variables to be eliminated in the VIF test.  
+Log transform some variables.  
+```{r}
+countries1 <- countries1 %>% 
+  mutate(lfdi = log(fdi), lgdp.dflt = log(gdp.dflt), lgdp.pc = log(gdp.pc)) %>% 
+  mutate(lfdi = ifelse(is.nan(lfdi) | lfdi == -Inf, NA, lfdi)) # for lack of better measure, Inf and NaN value of lfdi will be ignored
+```
 
 ## 3.2. Ordinary Multiple Linear Regression
 
