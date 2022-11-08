@@ -12,19 +12,29 @@ urlcolor: blue
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = F)
-knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
+knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 50), tidy = TRUE)
 ```
 
 ```{r, message = F}
-# required library
-library(knitr)
-library(readr)
-library(tidyr)
-library(dplyr)
-library(ggplot2)
-library(e1071)
-library(moments)
-library("PerformanceAnalytics")
+# Package names
+# packages <- c("MASS", "knitr", "readr", "tidyr", "dplyr", "ggplot2", "e1071", "moments", "corrplot", "Hmisc", "PerformanceAnalytics", "mice", "needs")
+# 
+# # Install packages not yet installed
+# installed_packages <- packages %in% rownames(installed.packages())
+# if (any(installed_packages == FALSE)) {
+#   install.packages(packages[!installed_packages])
+# }
+# 
+# # Packages loading
+# invisible(lapply(packages, library, character.only = TRUE))
+# 
+# prioritize(dplyr)
+
+library(needs)
+
+needs("dplyr", "MASS", "knitr", "readr", "tidyr", "ggplot2", "e1071", "moments", "corrplot", "Hmisc", "PerformanceAnalytics", "mice")
+
+prioritize(dplyr)
 ```
 
 # 1. Introduction (To be done)
@@ -355,7 +365,9 @@ expenditure in primary, secondary, and tertiary edication can be very useful and
 # variables with high missing rate
 hMiss <- names(missings[missings > 0.35])
 # exclude these variables in countries1
-countries1 <- countries %>% select(!hMiss)
+countries1 <- countries %>% 
+  select(!hMiss) %>% 
+  filter(!is.na(pov))
 str(countries1)
 ```
 
@@ -385,7 +397,7 @@ Still, we need to find a way to address this issue. we propose several approache
 1.  **Use complete cases**: Only use the complete cases for the analysis. This is a straightforward approach, but doesn't resolve the bias resulted from the mass loss of data.
 2.  **Selectively remove variables with high missing rate**: The same as we did before, but this process should be carried out carefully as we run the chance of dropping an important variable.
 3.  **Update the data set as we select variables**: As we drop insignificant variables (in backward selection), the number of NAs are changed as well. We can utilize the extra complete cases to build the next model in the steps.
-4.  **Imputation**: The idea is to replace the missing observations on the response or the predictors with artificial values that try to preserve the data set structure. This is a quite complex topic of its own, but we think why not. You can read more at from @imputation.
+4.  **Imputation**: The idea is to replace the missing observations on the response or the predictors with artificial values that try to preserve the data set structure. This is a quite complex topic of its own, but we think why not. You can read more from @imputation.
 
 ## 2.3. Descriptive Analytics
 Distribution of the predicted variable `pov`
@@ -598,14 +610,7 @@ round(cor.mtx$r, 2)
 corrplot(cor.mtx$r, type = "upper", order = "hclust", 
          tl.col = "black", tl.srt = 45)
 ```
-Some significant correlations can be found between `gdr.eql` with `edu.pri`, `pop.gwth.total`, and `fdi` with `mil`, etc.  
-We expect these variables to be eliminated in the VIF test.  
-Log transform some variables.  
-```{r}
-countries1 <- countries1 %>% 
-  mutate(lfdi = log(fdi), lgdp.dflt = log(gdp.dflt), lgdp.pc = log(gdp.pc)) %>% 
-  mutate(lfdi = ifelse(is.nan(lfdi) | lfdi == -Inf, NA, lfdi)) # for lack of better measure, Inf and NaN value of lfdi will be ignored
-```
+Some significant correlations can be found between `gdr.eql` with `edu.pri`, `pop.gwth.total`, and `fdi` with `mil`, etc. We expect these variables to be eliminated in the VIF test. This might be a good property for imputation (3.2.4)
 
 ## 3.2. Ordinary Multiple Linear Regression
 
@@ -627,8 +632,77 @@ We conduct a normal linear regression, following the approaches mentioned above 
 #### 3.2.3.3. Interpretation
 
 ### 3.2.4. Imputation (To be done)
+What is Imputation?
+**1. What is imputation**  
+Imputation is a technique to handle missing values by replacing missing data with substitute values. In our study, we focus on "item imputation", which means substituting for a component of a data point (i.e. a variable). The general idea is to take a value that preserve the property of the data (e.g., distribution, mean, standard deviation), or predict the value using other variables.  
+
+We use **Multivariate Imputation By Chained Equations (MICE)** as our primary tool for this technique, because of its wide acceptance in scientific studies (@imputWorks). In order to use this technique, we have to assume that the "missingness" of a field can be explained by the values in other columns, (e.g., If the countries is in North America, it's more likely to be missing as we have discovered in 2.2). The general ideas of the algorithm is iteratively predict the missing values based on other variables, and improve it after each iterations until predicted value converse to a stable point. The algorithmic details of MICE is very concisely explained in @micealgo.  
+
+Our parameter for this algorithm is fairly standard:  
+
+- `m = 5` imputed data sets
+- `maxit = 30` iterations
+
+The imputation method is `cart` (Classification and Regression Trees).
+
+```{r}
+set.seed(1984)
+# split data
+idx <- sample(1:nrow(countries1), replace = F, 0.7 * nrow(countries1))
+countries.train.4 <- countries1[idx,]
+countries.test.4 <- countries[-idx,]
+
+# blank for no imputation, cart for variable requiring imputation
+meth <- c(rep("", 4), "cart", "", rep("cart", 16))
+names(meth) <- colnames(countries1)
+meth
+
+# run the algorithm
+# countries1.imputed <- mice(countries1, m = 5, maxit = 30, method = meth)
+countries1.imputed <- readRDS("../countries1.imputed.RData")
+summary(countries1.imputed)
+```
+We can take a look into one of the imputated data sets.
+```{r}
+countries1.imputed.1 <- complete(countries1.imputed, 1)
+summary(countries1.imputed.1)
+sum(!complete.cases(countries1.imputed.1))
+```
+We found no missing cases as expected.
+
 #### 3.2.4.1. Model Fitting
+We generated 5 sets of imputated (training) data. We can build our model on each of these data sets and combine the estimates using [pooling rule](https://amices.org/mice/reference/pool.html#details). We remove `reg` and `country.name` from the model because they're perfectly predicted by `country.code`
+
+We can start with using one of the imputated sets.
+```{r}
+fit1 <- lm(pov ~ .-country.name, countries1.imputed.1)
+summary(fit1)
+```
+
+We might be more interested with large regions of countries rather than individual countries.
+```{r}
+fit1reg <- lm(pov ~ .-country.name-country.code, countries1.imputed.1)
+summary(fit1reg)
+```
+
+With all the generated data sets.
+
+```{r}
+fit2 <- with(data = countries1.imputed, exp = lm(pov ~ reg+year+income+edu.total+hlth+mil+fdi+lbr.part+unemp+pop.gwth.total+pop.gwth.rural+pop.gwth.urban+gdp.dflt+gcf+trade+gdp.pc+lfdi+lgdp.dflt+lgdp.pc))
+fit2.combined <- pool(fit2)
+summary(fit2.combined)
+pool.r.squared(fit2.combined)
+```
+
+We can conduct a step-wise AIC variable selection. It is similar to the procedure we use in class, but based on a metric call AIC (Akaike Information Criterion), which is an estimator of prediction error and relative quality of statistical models.  
+
+continue with fitting and displaying model [link](https://thomaselove.github.io/432-notes/multiple-imputation-and-linear-regression.html#fit-linear-regression-using-ols-and-fit.mult.impute)  
+-> AIC on one model [link](https://rforpoliticalscience.com/2020/10/23/choose-model-variables-by-aic-in-a-stepwise-algorithm-with-the-mass-package-in-r/)  
+-> stepwise selection on mice  [link](https://stefvanbuuren.name/fimd/sec-stepwise.html)
+
 #### 3.2.4.2. Assessment
+Check assumption
+outliers
 #### 3.2.4.3. Interpretation
 
 ## 3.3. Panel Data Analysis (To be done)
