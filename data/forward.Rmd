@@ -9,86 +9,148 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+df_count<-read.csv("../data/countries1.csv")
+head(df_count)
 
+set.seed(10)
+index <- sort(sample(x = nrow(df_count), size = nrow(df_count)*.8))
+train <- df_count[index, ]
+test <- df_count[-index, ]
+str(test)
 ```
 
 
-
+income has highest adjusted r-square value =0.6105
 ```{r cars}
-summary(lm(formula = pov ~ hlth,data = countries1))
-summary(lm(formula = pov ~ fdi,data = countries1))
-summary(lm(formula = pov ~ reg,data = countries1))
-summary(lm(formula = pov ~ mil,data = countries1))
-summary(lm(formula = pov ~ lbr.part,data = countries1))
-summary(lm(formula = pov ~ unemp,data = countries1))
-summary(lm(formula = pov ~ trade,data = countries1))
-summary(lm(formula = pov ~ pop.gwth.total,data = countries1))
-summary(lm(formula = pov ~ pop.gwth.rural,data = countries1))
-summary(lm(formula = pov ~ pop.gwth.urban,data = countries1))
-summary(lm(formula = pov ~ gcf,data = countries1))
-summary(lm(formula = pov ~ gdp.dflt,data = countries1))
-summary(lm(formula = pov ~ trade,data = countries1))
+summary(lm(formula = pov ~ income,data = train))
+summary(lm(formula = pov ~ reg,data = train))
+summary(lm(formula = pov ~ edu.total,data = train))
+summary(lm(formula = pov ~ hlth,data = train))
+summary(lm(formula = pov ~ mil,data = train))
+summary(lm(formula = pov ~ fdi,data = train))
+summary(lm(formula = pov ~ lbr.part,data = train))
+summary(lm(formula = pov ~ unemp,data = train))
+summary(lm(formula = pov ~ trade,data = train))
+summary(lm(formula = pov ~ pop.gwth.total,data = train))
+summary(lm(formula = pov ~ pop.gwth.rural,data = train))
+summary(lm(formula = pov ~ pop.gwth.urban,data = train))
+summary(lm(formula = pov ~ gdp.dflt,data = train))
+summary(lm(formula = pov ~ gcf,data = train))
+summary(lm(formula = pov ~ trade,data = train))
+summary(lm(formula = pov ~ gdp.pc,data = train))
+summary(lm(formula = pov ~ lfdi,data = train))
+summary(lm(formula = pov ~ lgdp.dflt,data = train))
+summary(lm(formula = pov ~ lgdp.pc,data = train))
+
+```
+
+
+#reg+income adjusted r-square=0.7031
+```{r}
+summary(lm(formula = pov ~ reg+income,data = train))
+summary(lm(formula = pov ~ edu.total+income,data = train))
+summary(lm(formula = pov ~ hlth+income,data = train))
+summary(lm(formula = pov ~ mil+income,data = train))
+summary(lm(formula = pov ~ fdi+income,data = train))
+summary(lm(formula = pov ~ lbr.part+income,data = train))
+summary(lm(formula = pov ~ unemp+income,data = train))
+summary(lm(formula = pov ~ trade+income,data = train))
+summary(lm(formula = pov ~ pop.gwth.total+income,data = train))
+summary(lm(formula = pov ~ pop.gwth.rural+income,data = train))
+summary(lm(formula = pov ~ pop.gwth.urban+income,data = train))
+summary(lm(formula = pov ~ gdp.dflt+income,data = train))
+summary(lm(formula = pov ~ gcf+income,data = train))
+summary(lm(formula = pov ~ trade+income,data = train))
+summary(lm(formula = pov ~ gdp.pc+income,data = train))
+summary(lm(formula = pov ~ lfdi+income,data = train))
+summary(lm(formula = pov ~ lgdp.dflt+income,data = train))
+summary(lm(formula = pov ~ lgdp.pc+income,data = train))
+
+```
+#lgdp.pc+income+reg r=0.7364
+```{r}
+summary(lm(formula = pov ~ edu.total+income +reg,data = train))
+summary(lm(formula = pov ~ hlth+income+reg,data = train))
+summary(lm(formula = pov ~ mil+income+reg,data = train))
+summary(lm(formula = pov ~ fdi+income+reg,data = train))
+summary(lm(formula = pov ~ lbr.part+income+reg,data = train))
+summary(lm(formula = pov ~ unemp+income+reg,data = train))
+summary(lm(formula = pov ~ trade+income+reg,data = train))
+summary(lm(formula = pov ~ pop.gwth.total+income+reg,data = train))
+summary(lm(formula = pov ~ pop.gwth.rural+income+reg,data = train))
+summary(lm(formula = pov ~ pop.gwth.urban+income+reg,data = train))
+summary(lm(formula = pov ~ gdp.dflt+income+reg,data = train))
+summary(lm(formula = pov ~ gcf+income+reg,data = train))
+summary(lm(formula = pov ~ trade+income+reg,data = train))
+summary(lm(formula = pov ~ gdp.pc+income+reg,data = train))
+summary(lm(formula = pov ~ lfdi+income+reg,data = train))
+summary(lm(formula = pov ~ lgdp.dflt+income+reg,data = train))
+summary(lm(formula = pov ~ lgdp.pc+income+reg,data = train))
+```
+gdp.pc+income+reg+lgdp.pc r=0.7599
+```{r}
+summary(lm(formula = pov ~ edu.total+income +reg+lgdp.pc,data = train))
+summary(lm(formula = pov ~ hlth+income+reg+lgdp.pc ,data = train))
+summary(lm(formula = pov ~ mil+income+reg+lgdp.pc ,data = train))#0.7424
+summary(lm(formula = pov ~ fdi+income+reg+lgdp.pc ,data = train))
+summary(lm(formula = pov ~ lbr.part+income+reg+lgdp.pc ,data = train))
+summary(lm(formula = pov ~ unemp+income+reg+lgdp.pc ,data = train))
+summary(lm(formula = pov ~ trade+income+reg+lgdp.pc,data = train))
+summary(lm(formula = pov ~ pop.gwth.total+income+reg+lgdp.pc,data = train)) #0.7433
+summary(lm(formula = pov ~ pop.gwth.rural+income+reg+lgdp.pc,data = train))
+summary(lm(formula = pov ~ pop.gwth.urban+income+reg+lgdp.pc,data = train))
+summary(lm(formula = pov ~ gdp.dflt+income+reg+lgdp.pc,data = train)) #0.7466
+summary(lm(formula = pov ~ gcf+income+reg+lgdp.pc,data = train))
+summary(lm(formula = pov ~ trade+income+reg+lgdp.pc,data = train))
+summary(lm(formula = pov ~ gdp.pc+income+reg+lgdp.pc,data = train)) #0.7599
+summary(lm(formula = pov ~ lfdi+income+reg+lgdp.pc,data = train))
+summary(lm(formula = pov ~ lgdp.dflt+income+reg+lgdp.pc,data = train))
+
 ```
 ```{r}
-summary(lm(formula = pov ~ hlth+reg,data = countries1))
-summary(lm(formula = pov ~ fdi+reg,data = countries1))
-summary(lm(formula = pov ~ mil+reg,data = countries1))
-summary(lm(formula = pov ~ lbr.part+reg,data = countries1))
-summary(lm(formula = pov ~ unemp+reg,data = countries1))
-summary(lm(formula = pov ~ trade+reg,data = countries1))
-summary(lm(formula = pov ~ pop.gwth.total+reg,data = countries1))
-summary(lm(formula = pov ~ pop.gwth.rural+reg,data = countries1))
-summary(lm(formula = pov ~ pop.gwth.urban+reg,data = countries1))
-summary(lm(formula = pov ~ gcf+reg,data = countries1))
-summary(lm(formula = pov ~ gdp.dflt+reg,data = countries1))
-summary(lm(formula = pov ~ trade+reg,data = countries1))
-summary(lm(formula = pov ~ income+reg,data = countries1))
-
+summary(lm(formula = pov ~ edu.total+income +reg+lgdp.pc,data = train))
+summary(lm(formula = pov ~ hlth+income+reg+lgdp.pc ,data = train))
+summary(lm(formula = pov ~ mil+income+reg+lgdp.pc ,data = train))
+summary(lm(formula = pov ~ fdi+income+reg+lgdp.pc ,data = train))
+summary(lm(formula = pov ~ lbr.part+income+reg+lgdp.pc ,data = train))
+summary(lm(formula = pov ~ unemp+income+reg+lgdp.pc ,data = train))
+summary(lm(formula = pov ~ trade+income+reg+lgdp.pc,data = train))
+summary(lm(formula = pov ~ pop.gwth.total+income+reg+lgdp.pc,data = train)) 
+summary(lm(formula = pov ~ pop.gwth.rural+income+reg+lgdp.pc,data = train))
+summary(lm(formula = pov ~ pop.gwth.urban+income+reg+lgdp.pc,data = train))
+summary(lm(formula = pov ~ gdp.dflt+income+reg+lgdp.pc,data = train)) 
+summary(lm(formula = pov ~ gcf+income+reg+lgdp.pc,data = train))
+summary(lm(formula = pov ~ trade+income+reg+lgdp.pc,data = train))
+summary(lm(formula = pov ~ lfdi+income+reg+lgdp.pc,data = train))
+summary(lm(formula = pov ~ lgdp.dflt+income+reg+lgdp.pc,data = train))
+#highest r-square=0.7466
 ```
 ```{r}
-summary(lm(formula = pov ~ income+reg,data = countries1))
-summary(lm(formula = pov ~ hlth+reg+income,data = countries1))
-summary(lm(formula = pov ~ fdi+reg+income,data = countries1))
-summary(lm(formula = pov ~ mil+reg+income,data = countries1))
-summary(lm(formula = pov ~ lbr.part+reg+income,data = countries1))
-summary(lm(formula = pov ~ unemp+reg+income,data = countries1))
-summary(lm(formula = pov ~ trade+reg+income,data = countries1))
-summary(lm(formula = pov ~ pop.gwth.total+reg+income,data = countries1))
-summary(lm(formula = pov ~ pop.gwth.rural+reg+income,data = countries1))
-summary(lm(formula = pov ~ pop.gwth.urban+reg+income,data = countries1))
-summary(lm(formula = pov ~ gcf+reg+income,data = countries1))
-summary(lm(formula = pov ~ gdp.dflt+reg+income,data = countries1))
-summary(lm(formula = pov ~ trade+reg+income,data = countries1))
+lm1<-(lm(formula = pov ~ gdp.pc+income+reg+lgdp.pc,data = train))
+summary(lm1)
 ```
 ```{r}
-summary(lm(formula = pov ~ mil + reg + income, data = countries1))
-
-```
-```{r}
-summary(lm(formula = pov ~ pop.gwth.urban + reg + income + mil, data = countries1))
-summary(lm(formula = pov ~ hlth+reg+income+mil+pop.gwth.urban,data = countries1))
-summary(lm(formula = pov ~ fdi+reg+income+mil+pop.gwth.urban,data = countries1))
-summary(lm(formula = pov ~ lbr.part+reg+income+mil+pop.gwth.urban,data = countries1))
-summary(lm(formula = pov ~ unemp+reg+income+mil+pop.gwth.urban,data = countries1))
-summary(lm(formula = pov ~ trade+reg+income+mil+pop.gwth.urban,data = countries1))
-summary(lm(formula = pov ~ pop.gwth.total+reg+income+mil+pop.gwth.urban,data = countries1))
-summary(lm(formula = pov ~ pop.gwth.rural+reg+income+mil+pop.gwth.urban,data = countries1))
-summary(lm(formula = pov ~ gcf+reg+income+mil+pop.gwth.urban,data = countries1))
-summary(lm(formula = pov ~ gdp.dflt+reg+income+mil+pop.gwth.urban,data = countries1))
-summary(lm(formula = pov ~ trade+reg+income+mil+pop.gwth.urban,data = countries1))
-```
-```{r}
-countries9 <- countries1 %>% 
-  select(Age, TotalWorkingYears, NumCourses, YearsAtCurrCompany, MonthlyIncome)
-```
-
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+eval.metrics.linreg <- function(actual, predicted) {
+  residual <- actual - predicted
+  mse <- mean(residual ^ 2)
+  mae <- mean(abs(residual))
+  rmse <-  sqrt(mse)
+  mape <- mean(abs(residual / actual)) * 100
+  
+  data.frame(
+    MSE = mse,
+    MAE = mae,
+    RMSE = rmse,
+    MAPE = mape
+  )
+}
+predicted<-predict(lm1,newdata=test)
+actual<-test$pov
+eval.metrics.linreg(actual,predicted)
+actual
+predicted
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
