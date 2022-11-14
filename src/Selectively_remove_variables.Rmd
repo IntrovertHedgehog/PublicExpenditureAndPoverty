@@ -1,0 +1,399 @@
+---
+title: "Selectively Remove Variables"
+author: "Callista Stephine Yu"
+date: "2022-11-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+library(knitr)
+library(readr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(stats)
+library(tidyverse)
+library(e1071)
+library(car)
+library(glmnet)
+library(corrplot)
+```
+We first read the 
+```{r}
+countries <- read.csv("../data/countries.csv")
+```
+
+
+```{r}
+head(countries)
+```
+
+```{r}
+
+#dataset without the red 
+#removing reg as it is a bit too complex to deal for now, not relevant
+
+#subset1 <- subset(countries, select = c("edu.total", "fdi", "gcf", "gdp.dflt", "hlth", "income", "lbr.part", "mil", "pop.gwth.rural", "pop.gwth.urban", "pov", "reg", "trade", "unemp", "year"))
+subset0 <- subset(countries, select = c("edu.total", "fdi","gcf","gdp.dflt","hlth","income","lbr.part","mil","pop.gwth.rural","pop.gwth.urban","pov","trade", "unemp", "year","gdp.pc" ))
+
+subset1 <- subset0 %>% mutate(lfdi = log(subset0$fdi)) %>% mutate(lgdp.pc = log(subset0$gdp.pc)) %>% mutate(lgdp.gdlt = log(subset0$gdp.dflt))
+#dataset
+```
+
+```{r}
+#converting non-numeric arguments into factors
+
+subset1$income <- factor(subset1$income)
+subset1$income <- as.numeric(subset1$income)
+
+```
+
+```{r}
+#Perform standardisation
+
+
+(df.countries0 <- subset1)
+scaler <- apply(X = df.countries0, MARGIN = 2, FUN = sd)
+
+(df.countries <- as.data.frame(apply(df.countries0, 2, function(x) x/sd(x, na.rm = TRUE))))
+
+
+```
+
+```{r}
+#Divide each feature/target by its standard deviation
+
+
+head(df.countries)
+```
+
+```{r}
+#check for correlation
+
+corrplot(cor(df.countries, use = "complete.obs"), 
+         method = "number",
+         type = "upper",
+         tl.col = "black", 
+         tl.srt = 30
+         )
+```
+
+```{r}
+set.seed(123)
+index <- sort(sample(x = nrow(df.countries), size = nrow(df.countries) * 0.8))
+train_1 <- subset1[index,]
+test_1 <- subset1[-index,]
+
+```
+
+```{r}
+#Boxplot of the predictor variables
+```
+
+```{r}
+```
+
+```{r}
+#Everything
+lm_1 <- lm(data= train_1, formula = pov ~ .)
+summary(lm_1)
+```
+```{r}
+#remove hlth 
+lm_2 <- lm(data= train_1, formula = pov ~ edu.total + gcf + fdi + gdp.dflt + income + lbr.part + mil + pop.gwth.urban + pop.gwth.rural + trade + unemp + year + gdp.pc + lfdi + lgdp.pc + lgdp.gdlt)
+summary(lm_2)
+plot(lm_2, which = 5)
+```
+
+```{r}
+#Remove fdi
+lm_3 <- lm(data= train_1, formula = pov ~ edu.total + gcf + gdp.dflt + income + lbr.part + mil + pop.gwth.urban + pop.gwth.rural + trade + unemp + year + gdp.pc + lfdi + lgdp.pc + lgdp.gdlt)
+summary(lm_3)
+plot(lm_3, which = 5)
+```
+```{r}
+#remove year 
+lm_4 <- lm(data= train_1, formula = pov ~ edu.total + gcf + gdp.dflt + income + lbr.part + mil + pop.gwth.urban + pop.gwth.rural + trade + unemp + gdp.pc + lfdi + lgdp.pc + lgdp.gdlt)
+summary(lm_4)
+plot(lm_4, which = 5)
+```
+```{r}
+#remove gdp.dflt 
+lm_4 <- lm(data= train_1, formula = pov ~ edu.total + gcf + income + lbr.part + mil + pop.gwth.urban + pop.gwth.rural + trade + unemp + gdp.pc + lfdi + lgdp.pc + lgdp.gdlt)
+summary(lm_4)
+plot(lm_4, which = 5)
+```
+```{r}
+lm_5 <- lm(data= train_1, formula = pov ~ edu.total + gcf + income + lbr.part + mil + pop.gwth.urban + pop.gwth.rural + trade + unemp + gdp.pc + lfdi + lgdp.pc)
+summary(lm_5)
+plot(lm_5, which = 5)
+```
+```{r}
+#removing lfdi
+lm_6 <- lm(data= train_1, formula = pov ~ edu.total + gcf + income + lbr.part + mil + pop.gwth.urban + pop.gwth.rural + trade + unemp + gdp.pc  + lgdp.pc)
+summary(lm_6)
+plot(lm_6, which = 4)
+```
+```{r}
+#
+data0 <- subset(df.countries, select = c("edu.total","gcf","income","lbr.part","mil","pop.gwth.rural","pop.gwth.urban","pov","trade", "unemp","gdp.pc", 
+                                        "lgdp.pc"))
+data <- na.omit(data0)
+train.x <- data.matrix(subset(data, select = -pov))
+train.y = data.matrix(data$pov)
+
+corrplot(cor(data, use = "complete.obs"), 
+         method = "number",
+         type = "upper",
+         tl.col = "black", 
+         tl.srt = 30
+         )
+```
+
+```{r}
+#Find the ridge regression model
+set.seed(123)
+rate <- 0.8
+train.size <- round(nrow(data)*rate)
+sample(sample(nrow(data), train.size))
+training <- data[sample, ]
+test <- data[-sample, ]
+
+
+
+```
+
+```{r}
+cv_ridge <- cv.glmnet(train.x, train.y, alpha = 0)
+glm_ridge <- glmnet(train.x, train.y, alpha = 0, lambda = cv_ridge$lambda.min)
+
+
+t(coef(glm_ridge))
+```
+
+```{r}
+train.x <- model.matrix(pov ~., data = training)[, -1]
+train.y <- training$pov
+test.x <- model.matrix(pov ~., data = test)[,-1]
+test.y <- test$pov
+```
+
+```{r}
+model_ridge_trial1 <- glmnet(train.x, train.y, alpha = 0, lambda = 0.1)
+t(coef(model_ridge_trial1))
+```
+
+```{r}
+model_ridge_trial2 <- glmnet(train.x, train.y, alpha = 0, lambda = 0.5)
+t(coef(model_ridge_trial2))
+```
+
+```{r}
+model_ridge_trial3 <- glmnet(train.x, train.y, alpha = 0, lambda = 1)
+t(coef(model_ridge_trial3))
+```
+```{r}
+table_summary <- cbind(coef(model_ridge_trial1),
+                       coef(model_ridge_trial2),
+                       coef(model_ridge_trial3))
+
+colnames(table_summary) <- c("lambda = 0.1",
+                             "lambda = 0.5",
+                             "lambda = 1")
+
+table_summary
+```
+
+```{r}
+#generate sequence of lambda values 
+lambda <- 10^seq(-6, 2, length = 100)
+ridge_model = glmnet(train.x, train.y, alpha = 0, lambda = lambda)
+
+t(coef(ridge_model))
+```
+
+```{r}
+plot(ridge_model, xvar = "lambda", label = TRUE)
+
+#customise the plot with labels
+add_lbs <- function(fit, offset_x = 2.5) {
+  L <- length(fit$lambda[L]) + offset_x
+  y <- fit$beta[,L]
+  labs <- names(y)
+  text(x, y , labels = labs, cex = 1.5)
+  
+  title(main = "Coefficients of Predictors vs Log(Lambda)",cex.main = 1.4, adj = 0, line = 3)
+  title(sub = "Number of Predictors", cex.sub = 1.1, adj = 0.55, line = -21.5)
+  add_lbs(ridge_model)
+  legend("topright", lwd = 1, col = 1:6, legend = colnames(train.x), cex = .7)
+
+}
+```
+
+```{r}
+plot_glmnet(ridge_model)
+```
+```{r}
+#cross - validation
+set.seed(123)
+cv_ridge <- cv.glmnet(train.x, train.y, alpha = 0, type.measure = "mse")
+
+```
+
+```{r}
+cv_ridge
+cv_ridge$lambda.min
+cv_ridge$lambda.1se
+```
+
+
+```{r}
+plot(cv_ridge)
+abline(v=log(cv_ridge$lambda.min), col = "red", lty=5)
+text(log(cv_ridge$lambda.min)+1, 1.4, 
+     labels= paste0("lambda_min = ", 
+                    round(cv_ridge$lambda.min, digits = 3)), 
+     cex = 1.1)
+
+# Label for lambda.1se
+abline(v=log(cv_ridge$lambda.1se), 
+       col = "red", lty=5)
+text(log(cv_ridge$lambda.1se)+1, 1.25, 
+     labels= paste0("lambda_1se = ", 
+                    round(cv_ridge$lambda.1se, digits = 3)), cex = 1.1)
+
+```
+
+```{r}
+#train the ridge regression model using lambda.min
+
+glm_Ridge <- glmnet(train.x, train.y, alpha = 0, lambda = cv_ridge$lambda.min)
+t(coef(glm_Ridge))
+```
+```{r}
+eval_results <- function(fit, true) {
+  actual <- data.matrix(true)
+  SSE <- sum((actual - fit)^2)
+  SST <- sum((actual - mean(actual))^2)
+  R_square <- 1 - SSE/SST
+  data.frame(
+    MSE = MSE(fit, true),
+    MAE = MAE(fit, true),
+    RMSE = RMSE(fit, true),
+    MAPE = MAPE(fit, true),
+    R2  = R_square
+    
+  )
+}
+```
+
+```{r}
+fit <- predict(glm_Ridge, train.x)
+true <- train.y
+summary_Ridge_train <- eval_results(fit, true)
+summary_Ridge_train
+```
+
+
+```{r}
+fit <- predict(glm_Ridge, test.x)
+true <- test.y
+summary_Ridge_test <- eval_results(fit, true)
+summary_Ridge_test
+```
+
+```{r}
+summary_Ridge <- rbind(summary_Ridge_train[-5], summary_Ridge_test[-5])
+rownames(summary_Ridge) <- c("Ridge_train", "Ridge_test")
+knitr::kable(summary_Ridge, digits = 3)
+
+```
+
+```{r}
+#Obtain fitted and true values
+
+fit <- predict(glm_Ridge, train.x)
+true <- train.y
+
+```
+
+```{r}
+#Plot residuals s
+plot(fit, true - fit, 
+     main = "Residual Plot of Ridge Regression Model on the Training dataset",
+     xlab = "Fitted value",
+     ylab = "Standardised Residuals")
+abline(h = 0, col = "red", lwd = 2)
+abline(h = 1, col = "red", lty = 2, lwd = 2)
+abline(h = -1, col = "red", lty = 2, lwd = 2)
+
+```
+Constant varince assumption not satisfied. What to do? Most likely need to transform the variable
+TO TRANSFORM TO BOXCOX 
+
+
+
+```{r}
+mlr_adj <- lm(pov ~., data = training)
+
+summary(mlr_adj)
+```
+
+
+```{r}
+#Train a LASSO regression model
+set.seed(123)
+cv_lasso <- cv.glmnet(train.x, train.y, alpha = 1, type.measure = "mse")
+```
+
+```{r}
+cv_lasso
+```
+
+```{r}
+plot(cv_lasso)
+```
+
+```{r}
+glm_Lasso <- glmnet(train.x, train.y, alpha = 1, lambda = cv_lasso$lambda.min)
+t(coef(glm_Lasso))
+```
+
+```{r}
+fit2 <- predict(glm_Lasso, train.x)
+true2 <- train.y
+summary_Lasso_train <- eval_results(fit2, true2)
+summary_Lasso_train
+```
+
+```{r}
+fit3 <- predict(glm_Lasso, test.x)
+true3 <- test.y
+summary_Lasso_test <- eval_results(fit3, true3)
+summary_Lasso_test
+```
+

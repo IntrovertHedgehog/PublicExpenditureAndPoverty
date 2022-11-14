@@ -1,0 +1,94 @@
+---
+title: "Untitled"
+output: html_document
+date: "2022-11-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+```
+
+
+
+```{r cars}
+summary(lm(formula = pov ~ hlth,data = countries1))
+summary(lm(formula = pov ~ fdi,data = countries1))
+summary(lm(formula = pov ~ reg,data = countries1))
+summary(lm(formula = pov ~ mil,data = countries1))
+summary(lm(formula = pov ~ lbr.part,data = countries1))
+summary(lm(formula = pov ~ unemp,data = countries1))
+summary(lm(formula = pov ~ trade,data = countries1))
+summary(lm(formula = pov ~ pop.gwth.total,data = countries1))
+summary(lm(formula = pov ~ pop.gwth.rural,data = countries1))
+summary(lm(formula = pov ~ pop.gwth.urban,data = countries1))
+summary(lm(formula = pov ~ gcf,data = countries1))
+summary(lm(formula = pov ~ gdp.dflt,data = countries1))
+summary(lm(formula = pov ~ trade,data = countries1))
+```
+```{r}
+summary(lm(formula = pov ~ hlth+reg,data = countries1))
+summary(lm(formula = pov ~ fdi+reg,data = countries1))
+summary(lm(formula = pov ~ mil+reg,data = countries1))
+summary(lm(formula = pov ~ lbr.part+reg,data = countries1))
+summary(lm(formula = pov ~ unemp+reg,data = countries1))
+summary(lm(formula = pov ~ trade+reg,data = countries1))
+summary(lm(formula = pov ~ pop.gwth.total+reg,data = countries1))
+summary(lm(formula = pov ~ pop.gwth.rural+reg,data = countries1))
+summary(lm(formula = pov ~ pop.gwth.urban+reg,data = countries1))
+summary(lm(formula = pov ~ gcf+reg,data = countries1))
+summary(lm(formula = pov ~ gdp.dflt+reg,data = countries1))
+summary(lm(formula = pov ~ trade+reg,data = countries1))
+summary(lm(formula = pov ~ income+reg,data = countries1))
+
+```
+```{r}
+summary(lm(formula = pov ~ income+reg,data = countries1))
+summary(lm(formula = pov ~ hlth+reg+income,data = countries1))
+summary(lm(formula = pov ~ fdi+reg+income,data = countries1))
+summary(lm(formula = pov ~ mil+reg+income,data = countries1))
+summary(lm(formula = pov ~ lbr.part+reg+income,data = countries1))
+summary(lm(formula = pov ~ unemp+reg+income,data = countries1))
+summary(lm(formula = pov ~ trade+reg+income,data = countries1))
+summary(lm(formula = pov ~ pop.gwth.total+reg+income,data = countries1))
+summary(lm(formula = pov ~ pop.gwth.rural+reg+income,data = countries1))
+summary(lm(formula = pov ~ pop.gwth.urban+reg+income,data = countries1))
+summary(lm(formula = pov ~ gcf+reg+income,data = countries1))
+summary(lm(formula = pov ~ gdp.dflt+reg+income,data = countries1))
+summary(lm(formula = pov ~ trade+reg+income,data = countries1))
+```
+```{r}
+summary(lm(formula = pov ~ mil + reg + income, data = countries1))
+
+```
+```{r}
+summary(lm(formula = pov ~ pop.gwth.urban + reg + income + mil, data = countries1))
+summary(lm(formula = pov ~ hlth+reg+income+mil+pop.gwth.urban,data = countries1))
+summary(lm(formula = pov ~ fdi+reg+income+mil+pop.gwth.urban,data = countries1))
+summary(lm(formula = pov ~ lbr.part+reg+income+mil+pop.gwth.urban,data = countries1))
+summary(lm(formula = pov ~ unemp+reg+income+mil+pop.gwth.urban,data = countries1))
+summary(lm(formula = pov ~ trade+reg+income+mil+pop.gwth.urban,data = countries1))
+summary(lm(formula = pov ~ pop.gwth.total+reg+income+mil+pop.gwth.urban,data = countries1))
+summary(lm(formula = pov ~ pop.gwth.rural+reg+income+mil+pop.gwth.urban,data = countries1))
+summary(lm(formula = pov ~ gcf+reg+income+mil+pop.gwth.urban,data = countries1))
+summary(lm(formula = pov ~ gdp.dflt+reg+income+mil+pop.gwth.urban,data = countries1))
+summary(lm(formula = pov ~ trade+reg+income+mil+pop.gwth.urban,data = countries1))
+```
+```{r}
+countries9 <- countries1 %>% 
+  select(Age, TotalWorkingYears, NumCourses, YearsAtCurrCompany, MonthlyIncome)
+```
+
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
