@@ -32,7 +32,7 @@ knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 50), tidy = TRUE)
 
 library(needs)
 
-needs("dplyr", "MASS", "knitr", "readr", "tidyr", "ggplot2", "e1071", "moments", "corrplot", "Hmisc", "PerformanceAnalytics", "mice")
+needs("dplyr", "MASS", "knitr", "readr", "tidyr", "ggplot2", "e1071", "moments", "corrplot", "Hmisc", "PerformanceAnalytics", "mice", "car", "glmnet")
 
 prioritize(dplyr)
 ```
@@ -586,6 +586,7 @@ countries.num3 <- countries.num %>%
 # name of the independent variables
 cn <- colnames(countries.num3)[-c(1,2)]
 
+# correlation of independent variable and pov
 corWithPov <- function(indevar, data) {
   cor(data[[indevar]], data[["pov"]], use = "complete.obs")
 }
@@ -595,6 +596,13 @@ kable(cor.pov)
 ```
 
 `edu.ter`, `mil`, `fdi`, `lbr.part`, `unemp`, `gdp.dflt`, `gcf` have negligible correlation with `pov`. `lgdp.pc`, `lfdi`, and `lgdp.dflt` have stronger linear relationship with `pov` than their un-transformed counterparts.
+
+```{r}
+countries1 <- countries1 %>% 
+  mutate(lfdi = log(fdi), lgdp.dflt = log(gdp.dflt), lgdp.pc = log(gdp.pc)) %>% 
+  mutate(lfdi = ifelse(is.nan(lfdi) | lfdi == -Inf, NA, lfdi))
+```
+
 
 **2. Predictors are independent**
 There should be no correlation/multicolinearity between each pair of predictors.
@@ -631,8 +639,7 @@ We conduct a normal linear regression, following the approaches mentioned above 
 #### 3.2.3.2. Assessment
 #### 3.2.3.3. Interpretation
 
-### 3.2.4. Imputation (To be done)
-What is Imputation?
+### 3.2.4. Imputation
 **1. What is imputation**  
 Imputation is a technique to handle missing values by replacing missing data with substitute values. In our study, we focus on "item imputation", which means substituting for a component of a data point (i.e. a variable). The general idea is to take a value that preserve the property of the data (e.g., distribution, mean, standard deviation), or predict the value using other variables.  
 
@@ -648,9 +655,10 @@ The imputation method is `cart` (Classification and Regression Trees).
 ```{r}
 set.seed(1984)
 # split data
-idx <- sample(1:nrow(countries1), replace = F, 0.7 * nrow(countries1))
-countries.train.4 <- countries1[idx,]
-countries.test.4 <- countries[-idx,]
+isComplete <- which(complete.cases(countries1))
+idx <- sample(isComplete, replace = F, 0.3 * nrow(countries1))
+countries.train.4 <- countries1[-idx,]
+countries.test.4 <- countries1[idx,]
 
 # blank for no imputation, cart for variable requiring imputation
 meth <- c(rep("", 4), "cart", "", rep("cart", 16))
@@ -658,8 +666,9 @@ names(meth) <- colnames(countries1)
 meth
 
 # run the algorithm
-# countries1.imputed <- mice(countries1, m = 5, maxit = 30, method = meth)
-countries1.imputed <- readRDS("../countries1.imputed.RData")
+# countries1.imputed <- mice(countries1, m = 3, maxit = 20, method = meth)
+# saveRDS(countries1.imputed, 'countries1.imputed.RData')
+countries1.imputed <- readRDS('countries1.imputed.RData')
 summary(countries1.imputed)
 ```
 We can take a look into one of the imputated data sets.
@@ -671,33 +680,133 @@ sum(!complete.cases(countries1.imputed.1))
 We found no missing cases as expected.
 
 #### 3.2.4.1. Model Fitting
-We generated 5 sets of imputated (training) data. We can build our model on each of these data sets and combine the estimates using [pooling rule](https://amices.org/mice/reference/pool.html#details). We remove `reg` and `country.name` from the model because they're perfectly predicted by `country.code`
+##### A. Ordinary Linear Regression
+We generated 5 sets of imputated (training) data. We can build our model on each of these data sets and combine the estimates using [pooling rule](https://amices.org/mice/reference/pool.html#details). With all the generated data sets.
 
-We can start with using one of the imputated sets.
 ```{r}
-fit1 <- lm(pov ~ .-country.name, countries1.imputed.1)
+formula.str <- 'pov ~ reg+year+income+edu.total+hlth+mil+fdi+lbr.part+unemp+pop.gwth.total+pop.gwth.rural+pop.gwth.urban+gdp.dflt+gcf+trade+gdp.pc+lfdi+lgdp.dflt+lgdp.pc'
+
+# Using only the first imputed data set
+fit1 <- lm(as.formula(formula.str), data = complete(countries1.imputed, 1))
 summary(fit1)
-```
+fit1.pred <- predict(fit1, countries.test.4)
 
-We might be more interested with large regions of countries rather than individual countries.
-```{r}
-fit1reg <- lm(pov ~ .-country.name-country.code, countries1.imputed.1)
-summary(fit1reg)
-```
-
-With all the generated data sets.
-
-```{r}
-fit2 <- with(data = countries1.imputed, exp = lm(pov ~ reg+year+income+edu.total+hlth+mil+fdi+lbr.part+unemp+pop.gwth.total+pop.gwth.rural+pop.gwth.urban+gdp.dflt+gcf+trade+gdp.pc+lfdi+lgdp.dflt+lgdp.pc))
+# Build models with all generated data set and pool the estimates
+fit2 <- with(data = countries1.imputed, exp = lm(as.formula(formula.str)))
 fit2.combined <- pool(fit2)
 summary(fit2.combined)
-pool.r.squared(fit2.combined)
+# dummy lm model
+fit2.dummy <- lm(as.formula(formula.str), data = countries1)
+# replace coefficients of dummy model & predict
+fit2.dummy$coefficients <- fit2.combined$pooled$estimate
+fit2.pred <- predict(fit2.dummy, countries.test.4)
+```
+Helper function to calculate R-Squared
+```{r}
+r2 <- function(pred, orig) {
+   RSS <- sum((pred - orig)^2)
+   TSS <- sum((pred - mean(orig))^2)
+   R2 <- 1 - RSS/TSS
+   return (R2)
+}
+
+adjR2 <- function(pred, orig, k) {
+  R2 <- r2(pred, orig)
+  n <- length(pred)
+  adjr2 <- 1 - (1-R2)*(n-1)/(n-k-1)
+  return (adjr2)
+}
+```
+Adjusted R-Squared on train and test
+```{r}
+k <- length(fit1$coefficients) - 1
+fit1.train.r2 <- summary(fit1)$adj.r.squared
+fit1.test.r2 <- adjR2(fit1.pred, countries.test.4$pov, k)
+fit2.train.r2 <- pool.r.squared(fit2, adjusted = T)[,'est']
+fit2.test.r2 <- adjR2(fit2.pred, countries.test.4$pov, k)
+res <- data.frame(model = c("Single", "Pooled"), train = c(fit1.train.r2, fit2.train.r2), test = c(fit1.test.r2, fit2.test.r2))
+kable(res)
 ```
 
-We can conduct a step-wise AIC variable selection. It is similar to the procedure we use in class, but based on a metric call AIC (Akaike Information Criterion), which is an estimator of prediction error and relative quality of statistical models.  
+The models seem to be over-fitting. We should perform model simplification.
 
-continue with fitting and displaying model [link](https://thomaselove.github.io/432-notes/multiple-imputation-and-linear-regression.html#fit-linear-regression-using-ols-and-fit.mult.impute)  
+##### B. Regularization
+
+Prepare data
+
+```{r}
+sd0 <- function(vct) {
+  if (!is.numeric(vct)) {
+    return(NA)
+  }
+  
+  return(sd(vct, na.rm = T))
+}
+
+
+std0 <- function(vct, scl) {
+  if (!is.numeric(vct)) {
+    return(vct)
+  }
+  
+  return(vct/scl)
+}
+
+standardise <- function(train, test) {
+  data <- rbind(train, test)
+  scaler <- unlist(lapply(data, sd0))
+  
+  numCols <- which(unlist(lapply(data, is.numeric)))
+  num <- as.data.frame(mapply(std0, vct = data[,numCols], scl = scaler[numCols], SIMPLIFY = T))
+  fct <- data[,-numCols]
+  return(cbind(fct, num))
+}
+```
+
+
+```{r}
+optimalModel <- function(train) {
+  #standardized
+}
+```
+
+
+##### B. Step-wise AIC
+We can conduct a step-wise AIC variable selection. It is similar to the procedure we use in class, but based on a metric call AIC (Akaike Information Criterion), which is an estimator of prediction error and relative quality of statistical models. The lower AIC is, the better the model fits. \\
+We have no idea how to pool coefficients for AIC model,
+
+```{r}
+# helper
+fitAIC <- function(i) {
+  fit <- lm(as.formula(formula.str), complete(countries1.imputed, i))
+  aic.fit <- stepAIC(fit, trace = F, direction = 'backward')
+  return(aic.fit)
+}
+
+# build models
+aic.fits <- lapply(1:countries1.imputed$m, fitAIC)
+# predict with each model
+aic.pred <- lapply(aic.fits, predict, newdata = countries.test.4)
+# calculate adj r2
+aic.train.r2 <- unlist(lapply(aic.fits, \(model) summary(model)$adj.r.squared))
+
+k <- lapply(aic.fits, \(m) length(m$coefficients))
+aic.test.r2 <- unlist(mapply(adjR2, aic.pred, k = k, MoreArgs = list(orig = countries.test.4$pov)))
+
+res <- data.frame(`set no.` = 1:3, train = aic.train.r2, test = aic.test.r2)
+```
+
+Adjusted R-Squared
+
+```{r}
+kable(res)
+```
+
+
+
 -> AIC on one model [link](https://rforpoliticalscience.com/2020/10/23/choose-model-variables-by-aic-in-a-stepwise-algorithm-with-the-mass-package-in-r/)  
+
+
 -> stepwise selection on mice  [link](https://stefvanbuuren.name/fimd/sec-stepwise.html)
 
 #### 3.2.4.2. Assessment
