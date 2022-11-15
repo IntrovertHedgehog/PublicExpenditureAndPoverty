@@ -3,9 +3,9 @@ title: "Draft Documents"
 author: "Team 1 (Hedgehog, Callista, Imtiyaaz, Issac)"
 date: "`r Sys.Date()`"
 output:
-  pdf_document: default
   html_document:
     df_print: paged
+  pdf_document: default
 bibliography: citations.bib
 urlcolor: blue
 ---
@@ -16,23 +16,9 @@ knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 50), tidy = TRUE)
 ```
 
 ```{r, message = F}
-# Package names
-# packages <- c("MASS", "knitr", "readr", "tidyr", "dplyr", "ggplot2", "e1071", "moments", "corrplot", "Hmisc", "PerformanceAnalytics", "mice", "needs")
-# 
-# # Install packages not yet installed
-# installed_packages <- packages %in% rownames(installed.packages())
-# if (any(installed_packages == FALSE)) {
-#   install.packages(packages[!installed_packages])
-# }
-# 
-# # Packages loading
-# invisible(lapply(packages, library, character.only = TRUE))
-# 
-# prioritize(dplyr)
-
 library(needs)
 
-needs("dplyr", "MASS", "knitr", "readr", "tidyr", "ggplot2", "e1071", "moments", "corrplot", "Hmisc", "PerformanceAnalytics", "mice", "car", "glmnet")
+needs("dplyr", "MASS", "knitr", "readr", "tidyr", "ggplot2", "e1071", "moments", "corrplot", "Hmisc", "PerformanceAnalytics", "mice", "car", "glmnet", "ggforce")
 
 prioritize(dplyr)
 ```
@@ -684,7 +670,7 @@ We found no missing cases as expected.
 We generated 5 sets of imputated (training) data. We can build our model on each of these data sets and combine the estimates using [pooling rule](https://amices.org/mice/reference/pool.html#details). With all the generated data sets.
 
 ```{r}
-formula.str <- 'pov ~ reg+year+income+edu.total+hlth+mil+fdi+lbr.part+unemp+pop.gwth.total+pop.gwth.rural+pop.gwth.urban+gdp.dflt+gcf+trade+gdp.pc+lfdi+lgdp.dflt+lgdp.pc'
+formula.str <- 'pov ~ country.code+year+income+edu.total+hlth+mil+fdi+lbr.part+unemp+pop.gwth.total+pop.gwth.rural+pop.gwth.urban+gdp.dflt+gcf+trade+gdp.pc+lfdi+lgdp.dflt+lgdp.pc'
 
 # Using only the first imputed data set
 fit1 <- lm(as.formula(formula.str), data = complete(countries1.imputed, 1))
@@ -696,7 +682,7 @@ fit2 <- with(data = countries1.imputed, exp = lm(as.formula(formula.str)))
 fit2.combined <- pool(fit2)
 summary(fit2.combined)
 # dummy lm model
-fit2.dummy <- lm(as.formula(formula.str), data = countries1)
+fit2.dummy <- lm(as.formula(formula.str), data = complete(countries1.imputed, 1))
 # replace coefficients of dummy model & predict
 fit2.dummy$coefficients <- fit2.combined$pooled$estimate
 fit2.pred <- predict(fit2.dummy, countries.test.4)
@@ -705,7 +691,7 @@ Helper function to calculate R-Squared
 ```{r}
 r2 <- function(pred, orig) {
    RSS <- sum((pred - orig)^2)
-   TSS <- sum((pred - mean(orig))^2)
+   TSS <- sum((orig - mean(orig))^2)
    R2 <- 1 - RSS/TSS
    return (R2)
 }
@@ -732,7 +718,7 @@ The models seem to be over-fitting. We should perform model simplification.
 
 ##### B. Regularization
 
-Prepare data
+Helper functions to standardise data.
 
 ```{r}
 sd0 <- function(vct) {
@@ -753,23 +739,143 @@ std0 <- function(vct, scl) {
 }
 
 standardise <- function(train, test) {
+  # save number of train and combine both data set
+  trainCases <- 1:nrow(train)
   data <- rbind(train, test)
+  # calc scaler
   scaler <- unlist(lapply(data, sd0))
-  
+  # get the numeric columns
   numCols <- which(unlist(lapply(data, is.numeric)))
+  # divide numeric columns by scalers, and combine with factor columns
   num <- as.data.frame(mapply(std0, vct = data[,numCols], scl = scaler[numCols], SIMPLIFY = T))
   fct <- data[,-numCols]
-  return(cbind(fct, num))
+  final <- cbind(fct, num)
+  # split to train and test
+  trainSet <- final[trainCases,]
+  testSet <- final[-trainCases,]
+  
+  res <- list(final = final, train = trainSet, test = testSet, scaler = scaler)
+  return(res)
 }
 ```
 
+Helper function to build the optimal model.
 
 ```{r}
-optimalModel <- function(train) {
-  #standardized
+optimalModel <- function(formula, train, test) {
+  # standise and save number of train cases (to split later)
+  std.data <- standardise(train, test)
+  trainCases <- 1:nrow(train)
+  # matrix-ise
+  xs <- model.matrix(formula, std.data$final)[,-1]
+  ys <- std.data$final$pov
+  # split data
+  train.x <- xs[trainCases,]
+  train.y <- ys[trainCases]
+  test.x <- xs[-trainCases,]
+  test.y <- ys[-trainCases]
+  # list of tested alpha, resolution = 0.1
+  alphas <- seq(0, 1, 0.1)
+  # build a bunch of models
+  models <- lapply(alphas, \(a) cv.glmnet(train.x, train.y, type.measure = "mse", alpha = a))
+  cv.error <- unlist(lapply(models, \(model) model$cvm[model$lambda == model$lambda.min]))
+  # best model
+  best.model.idx <- which.min(cv.error)
+  # optimal alpha and lambda
+  alpha.opt <- alphas[best.model.idx]
+  lambda.opt <- models[[best.model.idx]]$lambda.min
+  best.model <- glmnet(train.x, train.y, alpha = alpha.opt, lambda = lambda.opt)
+  # predict for test data
+  train.fit <- predict(best.model, train.x)
+  test.fit <- predict(best.model, test.x)
+  # evaluation - train
+  k <- best.model$df
+  train.r2 <- best.model$dev.ratio
+  train.adjR2 <- adjR2(train.fit, train.y, k)
+  train.resid <- train.fit - train.y
+  train.mse <- mean(train.resid^2)
+  train.rmse <- sqrt(train.mse)
+  train.mae <- mean(abs(train.resid))
+  train.mape <- mean(abs(train.resid / train.y))
+  # evaluation - test
+  test.r2 <- r2(test.fit, test.y)
+  test.adjR2 <- adjR2(test.fit, test.y, k)
+  test.resid <- test.fit - test.y
+  test.mse <- mean(test.resid^2)
+  test.rmse <- sqrt(test.mse)
+  test.mae <- mean(abs(test.resid))
+  test.mape <- mean(abs(test.resid / test.y))
+  # final results
+  results <- list(
+    train = list(
+      data = train,
+      r2 = train.r2,
+      adj.r2 = train.adjR2,
+      residuals = train.resid,
+      mse  = train.mse,
+      rmse = train.rmse,
+      mae  = train.mae,
+      mape = train.mape
+    ),
+    test = list(
+      data = test,
+      r2 = test.r2,
+      adj.r2 = test.adjR2,
+      residuals = test.resid,
+      mse  = test.mse,
+      rmse = test.rmse,
+      mae  = test.mae,
+      mape = test.mape
+    ),
+    scaler = scaler,
+    alpha = alpha.opt,
+    lambda = lambda.opt,
+    model = best.model
+  )
+  
+  return(results)
 }
 ```
 
+Build the optimal models using each imputated data set.
+
+```{r}
+# helper function to build from a specific imputated data
+buildWith <- function(set, imputed, test, formula, fun) {
+  train <- complete(imputed, set)
+  model <- fun(formula, train, test)
+  return(model)
+}
+
+set.seed(1984)
+
+models <- lapply(1:countries1.imputed$m, buildWith, imputed = countries1.imputed, test = countries.test.4, formula = as.formula(formula.str), fun = optimalModel)
+```
+
+Display parameters and evaluation.
+
+```{r}
+result.list <- lapply(models, \(mod) {
+  data.frame(
+    alpha = mod$alpha,
+    lambda = mod$lambda,
+    `Train MSE` = mod$train$mse,
+    `Test MSE` = mod$test$mse,
+    `Train MAE` = mod$train$mae,
+    `Test MAE` = mod$test$mae,
+    `Train R2` = mod$train$r2,
+    `Test R2` = mod$test$r2,
+    `Train Adj.R2` = mod$train$adj.r2,
+    `Test Adj.R2` = mod$test$adj.r2
+  )
+})
+
+result.df <- do.call(rbind.data.frame, result.list)
+result.df <- cbind(data.frame(Set = 1:countries1.imputed$m), result.df)
+kable(result.df)
+```
+
+It seems to have very little impact on the adjusted R-Squared of train data and test data.
 
 ##### B. Step-wise AIC
 We can conduct a step-wise AIC variable selection. It is similar to the procedure we use in class, but based on a metric call AIC (Akaike Information Criterion), which is an estimator of prediction error and relative quality of statistical models. The lower AIC is, the better the model fits. \\
