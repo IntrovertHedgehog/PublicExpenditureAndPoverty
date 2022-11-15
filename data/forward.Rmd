@@ -16,119 +16,53 @@ set.seed(10)
 index <- sort(sample(x = nrow(df_count), size = nrow(df_count)*.8))
 train <- df_count[index, ]
 test <- df_count[-index, ]
-str(test)
 ```
 
+Through forward selection, we will do feature selection, through iteration of different models, a linear model consisting of income as a predictor has the highest adjusted r-square value=0.6105. 
 
-income has highest adjusted r-square value =0.6105
+Below are some of the linear models that have been explored.
 ```{r cars}
-summary(lm(formula = pov ~ income,data = train))
-summary(lm(formula = pov ~ reg,data = train))
-summary(lm(formula = pov ~ edu.total,data = train))
-summary(lm(formula = pov ~ hlth,data = train))
-summary(lm(formula = pov ~ mil,data = train))
-summary(lm(formula = pov ~ fdi,data = train))
-summary(lm(formula = pov ~ lbr.part,data = train))
-summary(lm(formula = pov ~ unemp,data = train))
-summary(lm(formula = pov ~ trade,data = train))
-summary(lm(formula = pov ~ pop.gwth.total,data = train))
-summary(lm(formula = pov ~ pop.gwth.rural,data = train))
-summary(lm(formula = pov ~ pop.gwth.urban,data = train))
-summary(lm(formula = pov ~ gdp.dflt,data = train))
-summary(lm(formula = pov ~ gcf,data = train))
-summary(lm(formula = pov ~ trade,data = train))
-summary(lm(formula = pov ~ gdp.pc,data = train))
-summary(lm(formula = pov ~ lfdi,data = train))
-summary(lm(formula = pov ~ lgdp.dflt,data = train))
-summary(lm(formula = pov ~ lgdp.pc,data = train))
-
+summary(lm(formula = pov ~ income,data = train)) #0.6105
+summary(lm(formula = pov ~ reg,data = train)) #0.5287
+summary(lm(formula = pov ~ edu.total,data = train)) #0.09506
+summary(lm(formula = pov ~ hlth,data = train)) #0.09806
 ```
+Since income as a predictor brought the highest adjusted r-value, we add another predictor to income to find the predictor added to income which produced the highest adjusted r-value. reg as a predictor has the highest adjusted r-value=0.7031
 
-
-#reg+income adjusted r-square=0.7031
 ```{r}
 summary(lm(formula = pov ~ reg+income,data = train))
 summary(lm(formula = pov ~ edu.total+income,data = train))
 summary(lm(formula = pov ~ hlth+income,data = train))
 summary(lm(formula = pov ~ mil+income,data = train))
 summary(lm(formula = pov ~ fdi+income,data = train))
-summary(lm(formula = pov ~ lbr.part+income,data = train))
-summary(lm(formula = pov ~ unemp+income,data = train))
-summary(lm(formula = pov ~ trade+income,data = train))
-summary(lm(formula = pov ~ pop.gwth.total+income,data = train))
-summary(lm(formula = pov ~ pop.gwth.rural+income,data = train))
-summary(lm(formula = pov ~ pop.gwth.urban+income,data = train))
-summary(lm(formula = pov ~ gdp.dflt+income,data = train))
-summary(lm(formula = pov ~ gcf+income,data = train))
-summary(lm(formula = pov ~ trade+income,data = train))
-summary(lm(formula = pov ~ gdp.pc+income,data = train))
-summary(lm(formula = pov ~ lfdi+income,data = train))
-summary(lm(formula = pov ~ lgdp.dflt+income,data = train))
-summary(lm(formula = pov ~ lgdp.pc+income,data = train))
-
 ```
-#lgdp.pc+income+reg r=0.7364
+
+The forward selection process continues and lgdp.pc is the new predictor added that produced highest adjusted r-square=0.7364
 ```{r}
 summary(lm(formula = pov ~ edu.total+income +reg,data = train))
 summary(lm(formula = pov ~ hlth+income+reg,data = train))
-summary(lm(formula = pov ~ mil+income+reg,data = train))
-summary(lm(formula = pov ~ fdi+income+reg,data = train))
-summary(lm(formula = pov ~ lbr.part+income+reg,data = train))
-summary(lm(formula = pov ~ unemp+income+reg,data = train))
-summary(lm(formula = pov ~ trade+income+reg,data = train))
-summary(lm(formula = pov ~ pop.gwth.total+income+reg,data = train))
-summary(lm(formula = pov ~ pop.gwth.rural+income+reg,data = train))
-summary(lm(formula = pov ~ pop.gwth.urban+income+reg,data = train))
-summary(lm(formula = pov ~ gdp.dflt+income+reg,data = train))
-summary(lm(formula = pov ~ gcf+income+reg,data = train))
-summary(lm(formula = pov ~ trade+income+reg,data = train))
-summary(lm(formula = pov ~ gdp.pc+income+reg,data = train))
-summary(lm(formula = pov ~ lfdi+income+reg,data = train))
 summary(lm(formula = pov ~ lgdp.dflt+income+reg,data = train))
 summary(lm(formula = pov ~ lgdp.pc+income+reg,data = train))
 ```
 gdp.pc+income+reg+lgdp.pc r=0.7599
 ```{r}
-summary(lm(formula = pov ~ edu.total+income +reg+lgdp.pc,data = train))
-summary(lm(formula = pov ~ hlth+income+reg+lgdp.pc ,data = train))
 summary(lm(formula = pov ~ mil+income+reg+lgdp.pc ,data = train))#0.7424
-summary(lm(formula = pov ~ fdi+income+reg+lgdp.pc ,data = train))
-summary(lm(formula = pov ~ lbr.part+income+reg+lgdp.pc ,data = train))
-summary(lm(formula = pov ~ unemp+income+reg+lgdp.pc ,data = train))
-summary(lm(formula = pov ~ trade+income+reg+lgdp.pc,data = train))
 summary(lm(formula = pov ~ pop.gwth.total+income+reg+lgdp.pc,data = train)) #0.7433
-summary(lm(formula = pov ~ pop.gwth.rural+income+reg+lgdp.pc,data = train))
-summary(lm(formula = pov ~ pop.gwth.urban+income+reg+lgdp.pc,data = train))
 summary(lm(formula = pov ~ gdp.dflt+income+reg+lgdp.pc,data = train)) #0.7466
-summary(lm(formula = pov ~ gcf+income+reg+lgdp.pc,data = train))
-summary(lm(formula = pov ~ trade+income+reg+lgdp.pc,data = train))
 summary(lm(formula = pov ~ gdp.pc+income+reg+lgdp.pc,data = train)) #0.7599
-summary(lm(formula = pov ~ lfdi+income+reg+lgdp.pc,data = train))
-summary(lm(formula = pov ~ lgdp.dflt+income+reg+lgdp.pc,data = train))
-
 ```
+Highest adjusted r-square=0.7466 which is lower than our previous model
 ```{r}
-summary(lm(formula = pov ~ edu.total+income +reg+lgdp.pc,data = train))
-summary(lm(formula = pov ~ hlth+income+reg+lgdp.pc ,data = train))
-summary(lm(formula = pov ~ mil+income+reg+lgdp.pc ,data = train))
-summary(lm(formula = pov ~ fdi+income+reg+lgdp.pc ,data = train))
-summary(lm(formula = pov ~ lbr.part+income+reg+lgdp.pc ,data = train))
-summary(lm(formula = pov ~ unemp+income+reg+lgdp.pc ,data = train))
 summary(lm(formula = pov ~ trade+income+reg+lgdp.pc,data = train))
 summary(lm(formula = pov ~ pop.gwth.total+income+reg+lgdp.pc,data = train)) 
 summary(lm(formula = pov ~ pop.gwth.rural+income+reg+lgdp.pc,data = train))
-summary(lm(formula = pov ~ pop.gwth.urban+income+reg+lgdp.pc,data = train))
-summary(lm(formula = pov ~ gdp.dflt+income+reg+lgdp.pc,data = train)) 
-summary(lm(formula = pov ~ gcf+income+reg+lgdp.pc,data = train))
-summary(lm(formula = pov ~ trade+income+reg+lgdp.pc,data = train))
-summary(lm(formula = pov ~ lfdi+income+reg+lgdp.pc,data = train))
-summary(lm(formula = pov ~ lgdp.dflt+income+reg+lgdp.pc,data = train))
-#highest r-square=0.7466
+summary(lm(formula = pov ~ pop.gwth.urban+income+reg+lgdp.pc,data = train)) #0.7466
 ```
 ```{r}
 lm1<-(lm(formula = pov ~ gdp.pc+income+reg+lgdp.pc,data = train))
 summary(lm1)
 ```
+Assessment
 ```{r}
 eval.metrics.linreg <- function(actual, predicted) {
   residual <- actual - predicted
