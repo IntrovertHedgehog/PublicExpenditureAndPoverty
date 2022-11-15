@@ -8,15 +8,39 @@ library(tidyverse) # for data manipulations and visualisations
 library(ggpubr) # for correlation coefficient on plot
 library(gridExtra) # for arranging plots 
 library(e1071) # for skewness
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(readxl)
+library(corrplot)
+library(car)
+library(DescTools)
+library(glmnet)
+```
+
+```{r}
+eval_results <- function(true, predict) {
+  actual <- data.matrix(true)
+  SSE <- sum((predict - actual)^2)
+  SST <- sum((actual - mean(actual))^2)
+  R_square <- 1 - SSE / SST
+  data.frame(
+    MSE = MSE(predict, true),
+    MAE = MAE(predict, true),
+    RMSE = RMSE(predict, true),
+    MAPE = MAPE(predict, true),
+    Rsquare = R_square
+  )
+}
 ```
 
 
 
 ```{r}
-df <-read.csv('data/countries.csv' , ,sep = "", header = TRUE)
+df <-read.csv('../data/countries1.csv')
 df
-subset1 <- df %>% select("income","edu.total","edu.pri","edu.sec","edu.ter","hlth","mil","fdi","lbr.part","unemp","pop.gwth.total","pop.gwth.rural","pop.gwth.urban","gdp.dflt","gdr.eql","gcf","trade")
-
+subset1 <- df %>% select("pov","income","edu.total","hlth","mil","fdi","lbr.part","unemp","pop.gwth.total","pop.gwth.rural","gdp.dflt","gcf","trade","gdp.pc","lfdi","lgdp.dflt","lgdp.pc")
+subset1
 ```
 
 
@@ -35,7 +59,138 @@ test <- df[-index, ]
 
 
 ```{r}
-lm.slr <- lm(pov ~ income+edu.total+edu.pri+edu.sec+edu.ter+hlth+mil+fdi+lbr.part+unemp+pop.gwth.total+pop.gwth.rural+pop.gwth.urban+gdp.dflt+gdr.eql+gcf+trade,data = train)
+lm.slr <- lm(pov ~ income+edu.total+hlth+mil+fdi+lbr.part+unemp+pop.gwth.total+pop.gwth.rural+gdp.dflt+gcf+trade+gdp.pc+lfdi+lgdp.dflt+lgdp.pc,data = train)
 summary(lm.slr)
 
+```
+```{r}
+subset1$income <- factor(subset1$income)
+subset1$income <- as.numeric(subset1$income)
+
+
+```
+
+
+```{r}
+str(subset1)
+df0 <- subset1
+scaler <- apply(X = df0, MARGIN = 2, FUN = sd)
+subset1 <- as.data.frame(apply(df0, 2, function(x) x/sd(x, na.rm = TRUE)))
+subset1
+apply(subset1, 2, sd)
+
+```
+```{r}
+model1 <- lm(pov ~ ., data = subset1)
+summary(model1)
+vif(model1)
+
+```
+```{r}
+
+```
+```{r}
+subset2 <- subset(subset1,select =c("pov","income","edu.total","hlth","mil","fdi","lbr.part","unemp","pop.gwth.total","pop.gwth.rural","gdp.dflt","gcf","trade","gdp.pc","lfdi","lgdp.dflt","lgdp.pc"))
+subset2 <- na.omit(subset2)
+train.x <- data.matrix(subset(subset2, select = -pov))
+train.y = data.matrix(subset2$pov)
+```
+
+
+
+```{r}
+set.seed(123)
+rate <- 0.8
+train.size <- round(nrow(subset2)*rate)
+sample(sample(nrow(subset2), train.size))
+training <- subset2[sample, ]
+test <- subset2[-sample, ]
+
+```
+```{r}
+corrplot(cor(subset2, use = "complete.obs"), 
+         method = "number",
+         type = "upper",
+         tl.col = "black", 
+         tl.srt = 30
+         )
+```
+
+```{r}
+set.seed(123)
+cv_ridge <- cv.glmnet(train.x, train.y, alpha = 0)
+glm_ridge <- glmnet(train.x,
+                    train.y,
+                    alpha = 0,
+                    lambda = cv_ridge$lambda.min)
+t(coef(glm_ridge))
+
+```
+
+
+```{r}
+train.x <- model.matrix(pov ~., data = training)[, -1]
+train.y <- training$pov
+test.x <- model.matrix(pov ~., data = test)[,-1]
+test.y <- test$pov
+```
+
+```{r}
+model_ridge_trial1 <- glmnet(train.x, train.y, alpha = 0, lambda = 0.1)
+t(coef(model_ridge_trial1))
+```
+
+```{r}
+model_ridge_trial2 <- glmnet(train.x, train.y, alpha = 0, lambda = 0.5)
+t(coef(model_ridge_trial2))
+```
+
+```{r}
+model_ridge_trial3 <- glmnet(train.x, train.y, alpha = 0, lambda = 1)
+t(coef(model_ridge_trial3))
+```
+
+
+```{r}
+table_summary <- cbind(coef(model_ridge_trial1),
+                       coef(model_ridge_trial2),
+                       coef(model_ridge_trial3))
+
+colnames(table_summary) <- c("lambda = 0.1",
+                             "lambda = 0.5",
+                             "lambda = 1")
+
+table_summary
+```
+
+
+```{r}
+set.seed(123)
+cv_lasso <- cv.glmnet(train.x,train.y, alpha = 1)
+glm_lasso <- glmnet(train.x,train.y, 
+                    alpha = 1, lambda = cv_lasso$lambda.min)
+t(coef(glm_lasso))
+```
+
+```{r}
+# Obtain performance of MLR model
+#fit <- model1$fitted.values
+#true <- subset1$Price
+#summary_model1 <- eval_results(true, fit)
+
+# Obtain performance of ridge model
+fit <- predict(glm_ridge, newx = train.x)
+true <- train.y
+summary_ridge <- eval_results(true, fit)
+
+# Obtain performance of LASSO model
+fit <- predict(glm_lasso, newx = train.x)
+true <- train.y
+summary_lasso <- eval_results(true, fit)
+
+# Combine all performances into a single output
+summary <- rbind(summary_ridge, summary_lasso)
+rownames(summary) <- c( "Ridge_model", "LASSO_model" )
+colnames(summary)[5] <- "R^2"
+knitr::kable(summary, digits = 2)
 ```
