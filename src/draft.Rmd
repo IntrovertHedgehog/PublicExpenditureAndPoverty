@@ -676,6 +676,7 @@ Through iteration of different models. A linear model consisting of income as a 
 ```{r cars}
 summary(lm(formula = pov ~ income,data = train)) #0.6201
 ```
+
 Since income as a predictor brought the highest adjusted r-value, we add another predictor to income to find the predictor added to income which produced the highest adjusted r-value. reg as a predictor has the highest adjusted r-value=0.7181
 
 ```{r}
@@ -686,6 +687,7 @@ The forward selection process continues and lgdp.pc is the new predictor added t
 ```{r}
 summary(lm(formula = pov ~ lgdp.pc+income+reg,data = train)) #0.7492
 ```
+
 The addition of predictor gdp.pc produces the highest adjusted r-square value above 0.75, adjusted r-square=0.7703
 ```{r}
 summary(lm(formula = pov ~ gdp.pc+income+reg+lgdp.pc,data = train)) #0.7703
@@ -722,6 +724,7 @@ ac<-df23$actual
 pr<-df23$predicted
 eval.metrics.linreg(ac,pr)
 ```
+
 ###  3.3.3. Interpretation
 gdp per capital, income class and region of the country can provide a model to predict the poverty headcount ratio in a country.
 
