@@ -9,26 +9,6 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-
 ```{r}
 library(knitr)
 library(readr)
@@ -42,7 +22,7 @@ library(car)
 library(glmnet)
 library(corrplot)
 ```
-We first read the 
+
 ```{r}
 countries <- read.csv("../data/countries.csv")
 ```
@@ -51,37 +31,59 @@ countries <- read.csv("../data/countries.csv")
 ```{r}
 head(countries)
 ```
-
+This approach takes variables that contain less than 35% of missing data.The previous analysis showed that the relations between the predicted variable and gdp.pc, gdp.dflt, and fdi are better fitted to logarithmic models. Hence, we transformed the data with the mutate() function before building the machine learning model.
 ```{r}
 
-#dataset without the red 
-#removing reg as it is a bit too complex to deal for now, not relevant
-
-#subset1 <- subset(countries, select = c("edu.total", "fdi", "gcf", "gdp.dflt", "hlth", "income", "lbr.part", "mil", "pop.gwth.rural", "pop.gwth.urban", "pov", "reg", "trade", "unemp", "year"))
 subset0 <- subset(countries, select = c("edu.total", "fdi","gcf","gdp.dflt","hlth","income","lbr.part","mil","pop.gwth.rural","pop.gwth.urban","pov","trade", "unemp", "year","gdp.pc" ))
 
-subset1 <- subset0 %>% mutate(lfdi = log(subset0$fdi)) %>% mutate(lgdp.pc = log(subset0$gdp.pc)) %>% mutate(lgdp.gdlt = log(subset0$gdp.dflt))
-#dataset
+subset1 <- subset0 %>% mutate(lfdi = log(subset0$fdi)) %>% mutate(lgdp.pc = log(subset0$gdp.pc)) %>% mutate(lgdp.dflt = log(subset0$gdp.dflt))
+
+```
+subset1 contains the variables below 35% of missing values. 
+```{r}
+subset1 <- subset(subset1, select = c("edu.total", "lfdi","gcf","lgdp.dflt","hlth","income","lbr.part","mil","pop.gwth.rural","pop.gwth.urban","pov","trade", "unemp", "year","lgdp.pc"))
+
+subset1 <- na.omit(subset1)
+```
+We also performed standardisation to reduce the variance of our machine learning models. Below are the functions used to aid our standardisation step. 
+```{r}
+sd0 <- function(vct) {
+  if (!is.numeric(vct)) {
+    return(NA)
+  }
+  
+  return(sd(vct, na.rm = T))
+}
+
+
+std0 <- function(vct, scl) {
+  if (!is.numeric(vct)) {
+    return(vct)
+  }
+  
+  return(vct/scl)
+}
+
+scale <- function(data) {
+  unlist(lapply(data, sd0))
+}
+
+standardise <- function(data) {
+  scaler <- scale(data)
+  
+  numCols <- which(unlist(lapply(data, is.numeric)))
+  num <- as.data.frame(mapply(std0, vct = data[,numCols], scl = scaler[numCols], SIMPLIFY = T))
+  fct <- data[,-numCols]
+  return(cbind(fct, num))
+}
+
+
 ```
 
 ```{r}
-#converting non-numeric arguments into factors
 
-subset1$income <- factor(subset1$income)
-subset1$income <- as.numeric(subset1$income)
-
-```
-
-```{r}
-#Perform standardisation
-
-
-(df.countries0 <- subset1)
-scaler <- apply(X = df.countries0, MARGIN = 2, FUN = sd)
-
-(df.countries <- as.data.frame(apply(df.countries0, 2, function(x) x/sd(x, na.rm = TRUE))))
-
-
+df.countries0 <- standardise(subset1)
+df.countries <- df.countries0
 ```
 
 ```{r}
@@ -91,17 +93,7 @@ scaler <- apply(X = df.countries0, MARGIN = 2, FUN = sd)
 head(df.countries)
 ```
 
-```{r}
-#check for correlation
-
-corrplot(cor(df.countries, use = "complete.obs"), 
-         method = "number",
-         type = "upper",
-         tl.col = "black", 
-         tl.srt = 30
-         )
-```
-
+First, we split the data into training and testing data. 
 ```{r}
 set.seed(123)
 index <- sort(sample(x = nrow(df.countries), size = nrow(df.countries) * 0.8))
@@ -110,13 +102,7 @@ test_1 <- subset1[-index,]
 
 ```
 
-```{r}
-#Boxplot of the predictor variables
-```
-
-```{r}
-```
-
+Our first attempt 
 ```{r}
 #Everything
 lm_1 <- lm(data= train_1, formula = pov ~ .)
@@ -124,60 +110,65 @@ summary(lm_1)
 ```
 ```{r}
 #remove hlth 
-lm_2 <- lm(data= train_1, formula = pov ~ edu.total + gcf + fdi + gdp.dflt + income + lbr.part + mil + pop.gwth.urban + pop.gwth.rural + trade + unemp + year + gdp.pc + lfdi + lgdp.pc + lgdp.gdlt)
+lm_2 <- lm(data= train_1, formula = pov ~ .-lfdi - lgdp.dflt)
 summary(lm_2)
 plot(lm_2, which = 5)
 ```
 
 ```{r}
-#Remove fdi
-lm_3 <- lm(data= train_1, formula = pov ~ edu.total + gcf + gdp.dflt + income + lbr.part + mil + pop.gwth.urban + pop.gwth.rural + trade + unemp + year + gdp.pc + lfdi + lgdp.pc + lgdp.gdlt)
+#Remove lgdp.dflt
+lm_3 <- lm(data= train_1, formula = pov ~ . -lgdp.dflt)
 summary(lm_3)
 plot(lm_3, which = 5)
 ```
 ```{r}
-#remove year 
-lm_4 <- lm(data= train_1, formula = pov ~ edu.total + gcf + gdp.dflt + income + lbr.part + mil + pop.gwth.urban + pop.gwth.rural + trade + unemp + gdp.pc + lfdi + lgdp.pc + lgdp.gdlt)
+#remove lfdi
+lm_4 <- lm(data= train_1, formula = pov ~ . -hlth - lgdp.dflt - lfdi)
 summary(lm_4)
 plot(lm_4, which = 5)
 ```
+Our model shows that among all the 13 predictor variables that we started with, only 10 of them showed significance in building the model. 
+
+We then evaluated the results of the model. 
 ```{r}
-#remove gdp.dflt 
-lm_4 <- lm(data= train_1, formula = pov ~ edu.total + gcf + income + lbr.part + mil + pop.gwth.urban + pop.gwth.rural + trade + unemp + gdp.pc + lfdi + lgdp.pc + lgdp.gdlt)
-summary(lm_4)
-plot(lm_4, which = 5)
+#evaluating lm_4
+eval.metrics.linreg <- function(actual, predicted) {
+  residual <- actual - predicted
+  mse <- mean(residual ^ 2)
+  mae <- mean(abs(residual))
+  rmse <-  sqrt(mse)
+  mape <- mean(abs(residual / actual)) * 100
+  
+  
+  data.frame(
+    MSE = mse,
+    MAE = mae,
+    RMSE = rmse,
+    MAPE = mape
+  )
+}
 ```
+
 ```{r}
-lm_5 <- lm(data= train_1, formula = pov ~ edu.total + gcf + income + lbr.part + mil + pop.gwth.urban + pop.gwth.rural + trade + unemp + gdp.pc + lfdi + lgdp.pc)
-summary(lm_5)
-plot(lm_5, which = 5)
+actual <- train_1$pov
+predicted <- predict(lm_4, newdata = train_1)
+eval.metrics.linreg(actual, predicted)
 ```
+
 ```{r}
-#removing lfdi
-lm_6 <- lm(data= train_1, formula = pov ~ edu.total + gcf + income + lbr.part + mil + pop.gwth.urban + pop.gwth.rural + trade + unemp + gdp.pc  + lgdp.pc)
-summary(lm_6)
-plot(lm_6, which = 4)
-```
-```{r}
-#
-data0 <- subset(df.countries, select = c("edu.total","gcf","income","lbr.part","mil","pop.gwth.rural","pop.gwth.urban","pov","trade", "unemp","gdp.pc", 
-                                        "lgdp.pc"))
+#subsetting df.countries to only contain variables present in lm_7
+
+data0 <- subset1
 data <- na.omit(data0)
 train.x <- data.matrix(subset(data, select = -pov))
-train.y = data.matrix(data$pov)
+train.y <- data.matrix(data$pov)
 
-corrplot(cor(data, use = "complete.obs"), 
-         method = "number",
-         type = "upper",
-         tl.col = "black", 
-         tl.srt = 30
-         )
 ```
 
 ```{r}
 #Find the ridge regression model
 set.seed(123)
-rate <- 0.8
+rate <- 0.6
 train.size <- round(nrow(data)*rate)
 sample(sample(nrow(data), train.size))
 training <- data[sample, ]
@@ -188,44 +179,20 @@ test <- data[-sample, ]
 ```
 
 ```{r}
-cv_ridge <- cv.glmnet(train.x, train.y, alpha = 0)
-glm_ridge <- glmnet(train.x, train.y, alpha = 0, lambda = cv_ridge$lambda.min)
-
-
-t(coef(glm_ridge))
-```
-
-```{r}
-train.x <- model.matrix(pov ~., data = training)[, -1]
+training <- na.omit(training)
+train.x <- model.matrix(pov ~., data = training)[,-1]
 train.y <- training$pov
 test.x <- model.matrix(pov ~., data = test)[,-1]
 test.y <- test$pov
 ```
 
-```{r}
-model_ridge_trial1 <- glmnet(train.x, train.y, alpha = 0, lambda = 0.1)
-t(coef(model_ridge_trial1))
-```
 
 ```{r}
-model_ridge_trial2 <- glmnet(train.x, train.y, alpha = 0, lambda = 0.5)
-t(coef(model_ridge_trial2))
-```
+cv_ridge <- cv.glmnet(train.x, train.y, alpha = 0)
+glm_ridge <- glmnet(train.x, train.y, alpha = 0, lambda = cv_ridge$lambda.min)
 
-```{r}
-model_ridge_trial3 <- glmnet(train.x, train.y, alpha = 0, lambda = 1)
-t(coef(model_ridge_trial3))
-```
-```{r}
-table_summary <- cbind(coef(model_ridge_trial1),
-                       coef(model_ridge_trial2),
-                       coef(model_ridge_trial3))
 
-colnames(table_summary) <- c("lambda = 0.1",
-                             "lambda = 0.5",
-                             "lambda = 1")
-
-table_summary
+t(coef(glm_ridge))
 ```
 
 ```{r}
@@ -354,15 +321,6 @@ abline(h = -1, col = "red", lty = 2, lwd = 2)
 ```
 Constant varince assumption not satisfied. What to do? Most likely need to transform the variable
 TO TRANSFORM TO BOXCOX 
-
-
-
-```{r}
-mlr_adj <- lm(pov ~., data = training)
-
-summary(mlr_adj)
-```
-
 
 ```{r}
 #Train a LASSO regression model
