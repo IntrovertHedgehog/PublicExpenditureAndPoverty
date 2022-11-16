@@ -699,7 +699,32 @@ summary(lm1)
 ```
 
 ###  3.3.2. Assessment
+Assessment of linear model lm1: 
+the predicted model has some NA values which are removed. The error rates are too high, therefore, this method of variable selection may not be suitable
+```{r}
+eval.metrics.linreg <- function(actual, predicted) {
+  residual <- actual - predicted
+  mse <- mean(residual ^ 2)
+  mae <- mean(abs(residual))
+  rmse <-  sqrt(mse)
+  mape <- mean(abs(residual / actual)) * 100
+  
+  data.frame(
+    MSE = mse,
+    MAE = mae,
+    RMSE = rmse,
+    MAPE = mape
+  )
+}
+predicted<-predict(lm1,newdata=test)
+actual<-test$pov
+df23<-na.omit(data.frame(actual,predicted))
+ac<-df23$actual
+pr<-df23$predicted
+eval.metrics.linreg(ac,pr)
+```
 ###  3.3.3. Interpretation
+gdp per capital, income class and region of the country can provide a model to predict the poverty headcount ratio in a country.
 
 ## 3.4. Imputation
 **What is imputation?**  
