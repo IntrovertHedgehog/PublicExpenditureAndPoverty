@@ -660,7 +660,7 @@ We can now conduct linear regressions following the approaches mentioned above t
 ###  3.2.3. Interpretation
 
 ## 3.3. Update the data set as we select variables (Isaac)
-###  3.3.1. Model Fitting
+###  3.3.1. Model Fitting 
 ###  3.3.2. Assessment
 ###  3.3.3. Interpretation
 
