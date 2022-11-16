@@ -18,51 +18,49 @@ train <- df_count[index, ]
 test <- df_count[-index, ]
 ```
 
-Through forward selection, we will do feature selection, through iteration of different models, a linear model consisting of income as a predictor has the highest adjusted r-square value=0.6105. 
+Through forward selection, we will do feature selection. We will stop the forward selection when the adjusted r-value>0.75. 
+
+Through iteration of different models, a linear model consisting of income as a predictor has the highest adjusted r-square value=0.6201. 
 
 Below are some of the linear models that have been explored.
 ```{r cars}
-summary(lm(formula = pov ~ income,data = train)) #0.6105
-summary(lm(formula = pov ~ reg,data = train)) #0.5287
-summary(lm(formula = pov ~ edu.total,data = train)) #0.09506
-summary(lm(formula = pov ~ hlth,data = train)) #0.09806
+summary(lm(formula = pov ~ income,data = train)) #0.6201
+summary(lm(formula = pov ~ reg,data = train)) #0.5569
+summary(lm(formula = pov ~ edu.total,data = train)) #0.09577
+summary(lm(formula = pov ~ hlth,data = train)) #0.0921
 ```
-Since income as a predictor brought the highest adjusted r-value, we add another predictor to income to find the predictor added to income which produced the highest adjusted r-value. reg as a predictor has the highest adjusted r-value=0.7031
+Since income as a predictor brought the highest adjusted r-value, we add another predictor to income to find the predictor added to income which produced the highest adjusted r-value. reg as a predictor has the highest adjusted r-value=0.7181
 
 ```{r}
-summary(lm(formula = pov ~ reg+income,data = train))
-summary(lm(formula = pov ~ edu.total+income,data = train))
-summary(lm(formula = pov ~ hlth+income,data = train))
-summary(lm(formula = pov ~ mil+income,data = train))
-summary(lm(formula = pov ~ fdi+income,data = train))
+summary(lm(formula = pov ~ reg+income,data = train)) #0.7181
+summary(lm(formula = pov ~ edu.total+income,data = train)) #0.6033
+summary(lm(formula = pov ~ hlth+income,data = train)) #0.6201
+summary(lm(formula = pov ~ mil+income,data = train)) #0.6282
 ```
 
-The forward selection process continues and lgdp.pc is the new predictor added that produced highest adjusted r-square=0.7364
+The forward selection process continues and lgdp.pc is the new predictor added that produced highest adjusted r-square=0.7492
 ```{r}
-summary(lm(formula = pov ~ edu.total+income +reg,data = train))
-summary(lm(formula = pov ~ hlth+income+reg,data = train))
-summary(lm(formula = pov ~ lgdp.dflt+income+reg,data = train))
-summary(lm(formula = pov ~ lgdp.pc+income+reg,data = train))
+summary(lm(formula = pov ~ edu.total+income+reg,data = train)) #0.7347
+summary(lm(formula = pov ~ hlth+income+reg,data = train)) #0.6201
+summary(lm(formula = pov ~ mil+income+reg,data = train)) #0.6282
+summary(lm(formula = pov ~ lgdp.pc+income+reg,data = train)) #0.7492
 ```
-gdp.pc+income+reg+lgdp.pc r=0.7599
+The addition of predictor gdp.pc produces the highest adjusted r-square value above 0.75, adjusted r-square=0.7703
 ```{r}
-summary(lm(formula = pov ~ mil+income+reg+lgdp.pc ,data = train))#0.7424
-summary(lm(formula = pov ~ pop.gwth.total+income+reg+lgdp.pc,data = train)) #0.7433
-summary(lm(formula = pov ~ gdp.dflt+income+reg+lgdp.pc,data = train)) #0.7466
-summary(lm(formula = pov ~ gdp.pc+income+reg+lgdp.pc,data = train)) #0.7599
+summary(lm(formula = pov ~ edu.total+income+reg+lgdp.pc,data = train)) #0.7495
+summary(lm(formula = pov ~ mil+income+reg+lgdp.pc,data = train)) #0.7571
+summary(lm(formula = pov ~ pop.gwth.urban+income+reg+lgdp.pc,data = train)) #0.7606
+summary(lm(formula = pov ~ gdp.pc+income+reg+lgdp.pc,data = train)) #0.7703
 ```
-Highest adjusted r-square=0.7466 which is lower than our previous model
+
+Fitting of multiple linear regression with predictor gdp.pc, income, reg and lgd.pc.
 ```{r}
-summary(lm(formula = pov ~ trade+income+reg+lgdp.pc,data = train))
-summary(lm(formula = pov ~ pop.gwth.total+income+reg+lgdp.pc,data = train)) 
-summary(lm(formula = pov ~ pop.gwth.rural+income+reg+lgdp.pc,data = train))
-summary(lm(formula = pov ~ pop.gwth.urban+income+reg+lgdp.pc,data = train)) #0.7466
-```
-```{r}
-lm1<-(lm(formula = pov ~ gdp.pc+income+reg+lgdp.pc,data = train))
+lm1<-lm(formula = pov ~ gdp.pc+income+reg+lgdp.pc,data = train)
 summary(lm1)
 ```
-Assessment
+
+Assessment of linear model lm1: 
+the predicted model has some NA values which are removed. The error rates are too high, therefore, this method of variable selection may not be suitable
 ```{r}
 eval.metrics.linreg <- function(actual, predicted) {
   residual <- actual - predicted
@@ -80,11 +78,10 @@ eval.metrics.linreg <- function(actual, predicted) {
 }
 predicted<-predict(lm1,newdata=test)
 actual<-test$pov
-eval.metrics.linreg(actual,predicted)
-actual
-predicted
+df23<-na.omit(data.frame(actual,predicted))
+ac<-df23$actual
+pr<-df23$predicted
+eval.metrics.linreg(ac,pr)
 ```
 
-
-
-
+Intepretation: gdp per capital, income class and region of the country can provide a model to predict the poverty headcount ratio in a country.
