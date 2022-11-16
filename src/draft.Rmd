@@ -3,22 +3,32 @@ title: "Draft Documents"
 author: "Team 1 (Hedgehog, Callista, Imtiyaaz, Issac)"
 date: "`r Sys.Date()`"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
-  pdf_document: default
+  word_document: default
 bibliography: citations.bib
 urlcolor: blue
 ---
 
 ```{r setup, include=FALSE}
+library(knitr)
 knitr::opts_chunk$set(echo = TRUE, warning = F)
 knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 50), tidy = TRUE)
+# inline hook to 2 digits
+inline_hook <- function(x) {
+    if(is.numeric(x)) x <- round(x, 2)
+    paste(as.character(x), collapse=", ")
+}
+knit_hooks$set(inline = inline_hook)
+# code chunk out put to 
+options(digits = 5)
 ```
 
 ```{r, message = F}
 library(needs)
 
-needs("dplyr", "MASS", "knitr", "readr", "tidyr", "ggplot2", "e1071", "moments", "corrplot", "Hmisc", "PerformanceAnalytics", "mice", "car", "glmnet")
+needs("dplyr", "MASS", "readr", "tidyr", "ggplot2", "e1071", "moments", "corrplot", "Hmisc", "PerformanceAnalytics", "mice", "car", "glmnet", "ggforce", "lmtest")
 
 prioritize(dplyr)
 ```
@@ -459,32 +469,7 @@ stats <- poverty.headcount %>%
 kable(stats)
 ```
 
-## 2.4. Data Source
-
-- [poverty.headcount](https://data.worldbank.org/indicator/SI.POV.DDAY)
-- [mpi](https://data.worldbank.org/indicator/SI.POV.MDIM.XQ)
-- [education.expenditure.primary](https://data.worldbank.org/indicator/SE.XPD.PRIM.ZS)
-- [education.expenditure.secondary](https://data.worldbank.org/indicator/SE.XPD.SECO.ZS)
-- [education.expenditure.tertiary](https://data.worldbank.org/indicator/SE.XPD.TERT.ZS)
-- [education.expenditure.total](https://data.worldbank.org/indicator/SE.XPD.TOTL.GD.ZS)
-- [health.expenditure](https://data.worldbank.org/indicator/SH.XPD.GHED.GD.ZS)
-- [military.expenditure](https://data.worldbank.org/indicator/MS.MIL.XPND.GD.ZS)
-- [fdi](https://data.worldbank.org/indicator/BX.KLT.DINV.CD.WD)
-- [unemployment.rate](https://data.worldbank.org/indicator/SL.UEM.TOTL.NE.ZS)
-- [labour.force.participation](https://data.worldbank.org/indicator/SL.TLF.CACT.NE.ZS)
-- [gender.equality](https://data.worldbank.org/indicator/IQ.CPA.GNDR.XQ)
-- [population.growth](https://data.worldbank.org/indicator/SP.POP.GROW)
-- [urban.population.growth](https://data.worldbank.org/indicator/SP.URB.GROW)
-- [rural.population.growth](https://data.worldbank.org/indicator/SP.RUR.TOTL.ZG)
-- [gdp.deflator](https://data.worldbank.org/indicator/NY.GDP.DEFL.KD.ZG)
-- [gross capital formation](https://data.worldbank.org/indicator/NE.GDI.TOTL.ZS)
-- [trade](https://data.worldbank.org/indicator/NE.TRD.GNFS.ZS)
-- [region.class](https://datatopics.worldbank.org/world-development-indicators/the-world-by-income-and-region.html)
-- [income.class](https://datahelpdesk.worldbank.org/knowledgebase/articles/906519-world-bank-country-and-lending-groups)
-- [gross.capital.formation](https://data.worldbank.org/indicator/NE.GDI.TOTL.ZS)
-
-# 3. Model Selection and Interpretation
-## 3.1. Assumption Check
+## 2.4. Assumption Check
 We can conduct some preliminary checks on linearity and correlation of predictors to have a better picture of the data. [Checklist](https://godatadrive.com/blog/basic-guide-to-test-assumptions-of-linear-regression-in-r)
 **1. Linear relationship:**  
 Use correlation matrix to check linearity
@@ -513,17 +498,47 @@ drawGraph <- function(indvar, data) {
 
 ivs <- distinct(countries.num2, variable)[[1]]
 
-for (indvar in ivs) {
-  print(
-    ggplot(countries.num2 %>% 
-           filter(variable == indvar),
+# for (indvar in ivs) {
+#   print(
+#     ggplot(countries.num2 %>% 
+#            filter(variable == indvar),
+#          aes(x = value, y = pov)) +
+#     geom_point() +
+#     geom_smooth(formula = y~x, method = lm) +
+#     labs(title = paste("Relationship pov ~", indvar),
+#          x = indvar,
+#          y = "pov")
+#   )
+# }
+
+p <- ggplot(countries.num2, 
+     aes(x = value, y = pov)) +
+geom_point() +
+geom_smooth(formula = y~x, method = lm) +
+labs(title = paste("pov ~ variable"),
+     x = "variable",
+     y = "pov") +
+facet_wrap_paginate(~ variable,
+                    ncol = 3,
+                    nrow = 1,
+                    scales = "free")
+
+requiredPages <- n_pages(p)
+
+for (i in 1:requiredPages) {
+  ggplot(countries.num2,
          aes(x = value, y = pov)) +
-    geom_point() +
-    geom_smooth(formula = y~x, method = lm) +
-    labs(title = paste("Relationship pov ~", indvar),
-         x = indvar,
-         y = "pov")
-  )
+  geom_point() +
+  geom_smooth(formula = y~x, method = lm) +
+  labs(title = paste("pov ~ variable"),
+       x = "variable",
+       y = "pov") +
+  facet_wrap_paginate(~ variable,
+                      ncol = 3,
+                      nrow = 1,
+                      scales = "free",
+                      page = i) -> p
+  print(p)
 }
 ```
 
@@ -538,7 +553,7 @@ for (indvar in logIvs) {
          aes(x = log(value), y = pov)) +
     geom_point() +
     geom_smooth(method = lm) +
-    labs(title = paste0("Relationship pov ~ log(", indvar, ")"),
+    labs(title = paste0("pov ~ log(", indvar, ")"),
          x = paste0("log(", indvar, ")"),
          y = "pov")
   )
@@ -555,8 +570,7 @@ gdr.eql <- countries.num2 %>%
 ggplot(gdr.eql,
        aes(x = value, y = pov)) +
   geom_boxplot() +
-  geom_smooth(method = lm) +
-  labs(title = paste("Relationship pov ~ gdr.eql"),
+  labs(title = paste("pov ~ gdr.eql"),
        x = "gdr.eql",
        y = "pov")
 ```
@@ -606,26 +620,51 @@ corrplot(cor.mtx$r, type = "upper", order = "hclust",
 ```
 Some significant correlations can be found between `gdr.eql` with `edu.pri`, `pop.gwth.total`, and `fdi` with `mil`, etc. We expect these variables to be eliminated in the VIF test. This might be a good property for imputation (3.2.4)
 
-## 3.2. Ordinary Multiple Linear Regression
 
-We conduct a normal linear regression, following the approaches mentioned above to address missing values issues.
+## 2.5. Data Source
 
-### 3.2.1. Use Complete Cases (To be done)
-#### 3.2.1.1. Model Fitting
-#### 3.2.1.2. Assessment
-#### 3.2.1.3. Interpretation
+- [poverty.headcount](https://data.worldbank.org/indicator/SI.POV.DDAY)
+- [mpi](https://data.worldbank.org/indicator/SI.POV.MDIM.XQ)
+- [education.expenditure.primary](https://data.worldbank.org/indicator/SE.XPD.PRIM.ZS)
+- [education.expenditure.secondary](https://data.worldbank.org/indicator/SE.XPD.SECO.ZS)
+- [education.expenditure.tertiary](https://data.worldbank.org/indicator/SE.XPD.TERT.ZS)
+- [education.expenditure.total](https://data.worldbank.org/indicator/SE.XPD.TOTL.GD.ZS)
+- [health.expenditure](https://data.worldbank.org/indicator/SH.XPD.GHED.GD.ZS)
+- [military.expenditure](https://data.worldbank.org/indicator/MS.MIL.XPND.GD.ZS)
+- [fdi](https://data.worldbank.org/indicator/BX.KLT.DINV.CD.WD)
+- [unemployment.rate](https://data.worldbank.org/indicator/SL.UEM.TOTL.NE.ZS)
+- [labour.force.participation](https://data.worldbank.org/indicator/SL.TLF.CACT.NE.ZS)
+- [gender.equality](https://data.worldbank.org/indicator/IQ.CPA.GNDR.XQ)
+- [population.growth](https://data.worldbank.org/indicator/SP.POP.GROW)
+- [urban.population.growth](https://data.worldbank.org/indicator/SP.URB.GROW)
+- [rural.population.growth](https://data.worldbank.org/indicator/SP.RUR.TOTL.ZG)
+- [gdp.deflator](https://data.worldbank.org/indicator/NY.GDP.DEFL.KD.ZG)
+- [gross capital formation](https://data.worldbank.org/indicator/NE.GDI.TOTL.ZS)
+- [trade](https://data.worldbank.org/indicator/NE.TRD.GNFS.ZS)
+- [region.class](https://datatopics.worldbank.org/world-development-indicators/the-world-by-income-and-region.html)
+- [income.class](https://datahelpdesk.worldbank.org/knowledgebase/articles/906519-world-bank-country-and-lending-groups)
+- [gross.capital.formation](https://data.worldbank.org/indicator/NE.GDI.TOTL.ZS)
 
-### 3.2.2. Selectively remove variables with high missing rate (To be done)
-#### 3.2.2.1. Model Fitting
-#### 3.2.2.2. Assessment
-#### 3.2.2.3. Interpretation
+# 3. Model Selection and Interpretation
 
-### 3.2.3. Update the data set as we select variables (To be done)
-#### 3.2.3.1. Model Fitting
-#### 3.2.3.2. Assessment
-#### 3.2.3.3. Interpretation
+We can now conduct linear regressions following the approaches mentioned above to address missing values issues.
 
-### 3.2.4. Imputation
+## 3.1. Use Complete Cases (To be done)
+###  3.1.1. Model Fitting
+###  3.1.2. Assessment
+###  3.1.3. Interpretation
+
+## 3.2. Selectively remove variables with high missing rate (To be done)
+###  3.2.1. Model Fitting
+###  3.2.2. Assessment
+###  3.2.3. Interpretation
+
+## 3.3. Update the data set as we select variables (To be done)
+###  3.3.1. Model Fitting
+###  3.3.2. Assessment
+###  3.3.3. Interpretation
+
+## 3.4. Imputation
 **1. What is imputation**  
 Imputation is a technique to handle missing values by replacing missing data with substitute values. In our study, we focus on "item imputation", which means substituting for a component of a data point (i.e. a variable). The general idea is to take a value that preserve the property of the data (e.g., distribution, mean, standard deviation), and use other variables to predict the missing values (much like regression). Since we observed some correlations during descriptive analysis, we expect the imputation algorithm to work well.
 
@@ -665,7 +704,7 @@ sum(!complete.cases(countries1.imputed.1))
 ```
 We found no missing cases as expected.
 
-#### 3.2.4.1. Model Fitting
+###  3.4.1. Model Fitting
 ##### A. Ordinary Linear Regression
 We generated 3 sets of imputated (training) data. We can build separate models using each data set, and combine the estimates using [pooling rule](https://amices.org/mice/reference/pool.html#details). With all the generated data sets.
 
@@ -708,10 +747,10 @@ fit1.summ <- lapply(fit1, \(f) {
   k <- length(f$coefficients) - 1
   # predict value of test
   pred <- predict(f, countries.test.4)
-  resid <- pred - countries.test.4$pov
+  test.resid <- pred - countries.test.4$pov
   data.frame(
     `Train MSE` = mean(summary(f)$residuals^2),
-    `Test MSE` = mean(resid^2),
+    `Test MSE` = mean(test.resid^2),
     `Train MAE` = mean(abs(summary(f)$residuals)),
     `Test MAE` = mean(abs(test.resid)),
     `Train Adj.R2` = summary(f)$adj.r.squared,
@@ -723,10 +762,10 @@ fit1.summ <- lapply(fit1, \(f) {
 k <- length(fit2.dummy$coefficients) - 1
 # number of variables
 fit2.pred <- predict(fit2.dummy, countries.test.4)
-resid <- fit2.pred - countries.test.4$pov
+test.resid <- fit2.pred - countries.test.4$pov
 fit2.summ <- data.frame(
   `Train MSE` = mean(summary(fit2.dummy)$residuals^2),
-  `Test MSE` = mean(resid^2),
+  `Test MSE` = mean(test.resid^2),
   `Train MAE` = mean(abs(summary(fit2.dummy)$residuals)),
   `Test MAE` = mean(abs(test.resid)),
   `Train Adj.R2` = pool.r.squared(fit2, adjusted = T)[,'est'],
@@ -859,7 +898,7 @@ We can conduct a step-wise AIC variable selection. It is similar to the procedur
 fitAIC <- function(i) {
   set.seed(1984)
   fit <- lm(as.formula(formula.str), complete(countries1.imputed, i))
-  aic.fit <- stepAIC(fit, trace = T, direction = 'backward')
+  aic.fit <- stepAIC(fit, trace = F, direction = 'backward')
   return(aic.fit)
 }
 
@@ -913,10 +952,10 @@ fit4.dummy$coefficients <- fit4.combined$pooled$estimate
 fit3.summ <- lapply(fit3, \(f) {
   k <- length(f$coefficients) - 1
   pred <- predict(f, countries.test.4)
-  resid <- pred - countries.test.4$pov
+  test.resid <- pred - countries.test.4$pov
   data.frame(
     `Train MSE` = mean(summary(f)$residuals^2),
-    `Test MSE` = mean(resid^2),
+    `Test MSE` = mean(test.resid^2),
     `Train MAE` = mean(abs(summary(f)$residuals)),
     `Test MAE` = mean(abs(test.resid)),
     `Train Adj.R2` = summary(f)$adj.r.squared,
@@ -926,10 +965,10 @@ fit3.summ <- lapply(fit3, \(f) {
 
 k <- length(fit4.dummy$coefficients) - 1
 fit4.pred <- predict(fit4.dummy, countries.test.4)
-resid <- fit4.pred - countries.test.4$pov
+test.resid <- fit4.pred - countries.test.4$pov
 fit4.summ <- data.frame(
   `Train MSE` = mean(summary(fit4.dummy)$residuals^2),
-  `Test MSE` = mean(resid^2),
+  `Test MSE` = mean(test.resid^2),
   `Train MAE` = mean(abs(summary(fit4.dummy)$residuals)),
   `Test MAE` = mean(abs(test.resid)),
   `Train Adj.R2` = pool.r.squared(fit4, adjusted = T)[,'est'],
@@ -1127,12 +1166,73 @@ kable(res)
 
 All non-country.code variables are non-zero. We can observe that the regularisation models just remove the effect of `country.code`, for countries that have similar "baseline".
 
-#### 3.2.4.2. Assessment
-Check assumption
-outliers
-#### 3.2.4.3. Interpretation
+###  3.4.2. Assessment
 
-## 3.3. Panel Data Analysis (To be done)
+Now we are evaluating some performance metrics, checking assumptions, and remedy some potential problems.
+
+##### A. Homoscedasticity
+
+Plot the residuals ~ pov
+
+```{r}
+for (mod in models) {
+  resid <- mod$train$residuals
+  fitted <- mod$train$data$pov + mod$train$residuals
+  # plot(resid ~ pov, main = paste("Model", i))
+  print(ggplot(mapping = aes(y = resid, x = fitted)) +
+    geom_point() +
+    geom_smooth(formula = y ~ x, method = loess))
+}
+```
+
+There seems to be some larger variance with higher values of `pov`. We can conduct a statistical test to confirm the present of heteroscedasticity.
+
+The Goldfeld-Quandt test is performed by eliminating a certain number of observations from the dataset’s center, then comparing the spread of residuals between the two datasets on either side of the central observations.
+
+The Goldfeld-Quandt test examines two submodels’ variances divided by a defined breakpoint and rejects if the variances disagree.
+
+Under H0, the Goldfeld-Quandt test’s test statistic follows an F distribution with degrees of freedom as specified in the parameter.
+
+- **Null (H0):** Heteroscedasticity is not present.
+- **Alternative (H1):** Heteroscedasticity is present.
+
+```{r}
+lapply(models, \(m) {
+  resid <- m$train$residuals
+  # apply Goldfeld-Quandt test
+  gqtest(formula = resid ~ 1, order.by = m$train$data$pov)
+})
+```
+
+There is heteroscedasticity in our models. [Generalized Least Squares With Unknown For of Variance](https://rpubs.com/cyobero/187387) is a possible remedy of this problem, but at the cost of model interpretation. The high variance in higher end of `pov` can be explained by the relative volatile economics and politic climate in highly poor countries ($pov > 0.25$), leading to unstable effect of predictors.
+
+##### B. Independence
+
+Some possible source of dependency are poverty measured on the same country, or in the same year. These are accounted in our models by controlling those variables. 
+
+Some countries have been engaging in international wars, being under the influences of foreign forces such as Iraq, and Afghanistan. They possess similar (and different) political climates. Some other groups of economical alliance, or enjoying similar natural resources: OPEC, EU, ASEAN, etc. might have similar characteristics that make them dependent.
+
+A solution to resolve this is to conduct the study on countries with similar geographical characteristics. In our study, however, we are interested in the general effects of certain variable across the globe. Although there are some dependence, the large number of entities with various features, we hypothesize, will cancel each other out, resulting in a net effect that gives an overview of the influences of variables.
+
+##### C. Normally Distributed Residuals
+
+```{r}
+for (m in models) {
+  p <- ggplot(mapping = aes(x = m$train$residuals)) +
+    geom_histogram(aes(y = ..density..), bins = 30) +
+    geom_density(alpha = .2, fill = "blue")
+  
+  print(p)
+}
+```
+
+Although quite negatively skewed, the residuals are visibly normal.
+
+##### D. Outliers
+
+As elastic net model produced in 
+
+###  3.4.3. Interpretation
 
 # 4. Conclusion
 # 5. Appendix
