@@ -660,7 +660,44 @@ We can now conduct linear regressions following the approaches mentioned above t
 ###  3.2.3. Interpretation
 
 ## 3.3. Update the data set as we select variables (Isaac)
-###  3.3.1. Model Fitting
+###  3.3.1. Model Fitting 
+```{r}
+df_count<-read.csv("../data/countries1.csv")
+set.seed(10)
+index <- sort(sample(x = nrow(df_count), size = nrow(df_count)*.8))
+train <- df_count[index, ]
+test <- df_count[-index, ]
+```
+
+Through forward selection, we will do feature selection. We will stop the forward selection when the adjusted r-value>0.75. 
+
+Through iteration of different models. A linear model consisting of income as a predictor has the highest adjusted r-square value=0.6201, thus it is selected. 
+
+Only some of the linear models that have been explored are showed.
+```{r cars}
+summary(lm(formula = pov ~ income,data = train)) #0.6201
+```
+Since income as a predictor brought the highest adjusted r-value, we add another predictor to income to find the predictor added to income which produced the highest adjusted r-value. reg as a predictor has the highest adjusted r-value=0.7181
+
+```{r}
+summary(lm(formula = pov ~ reg+income,data = train)) #0.7181
+```
+
+The forward selection process continues and lgdp.pc is the new predictor added that produced highest adjusted r-square=0.7492
+```{r}
+summary(lm(formula = pov ~ lgdp.pc+income+reg,data = train)) #0.7492
+```
+The addition of predictor gdp.pc produces the highest adjusted r-square value above 0.75, adjusted r-square=0.7703
+```{r}
+summary(lm(formula = pov ~ gdp.pc+income+reg+lgdp.pc,data = train)) #0.7703
+```
+
+Fitting of multiple linear regression with predictor gdp.pc, income, reg and lgd.pc.
+```{r}
+lm1<-lm(formula = pov ~ gdp.pc+income+reg+lgdp.pc,data = train)
+summary(lm1)
+```
+
 ###  3.3.2. Assessment
 ###  3.3.3. Interpretation
 
