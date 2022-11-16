@@ -673,7 +673,6 @@ Through forward selection, we will do feature selection. We will stop the forwar
 
 Through iteration of different models. A linear model consisting of income as a predictor has the highest adjusted r-square value=0.6201, thus it is selected. 
 
-Only some of the linear models that have been explored are showed.
 ```{r cars}
 summary(lm(formula = pov ~ income,data = train)) #0.6201
 ```
