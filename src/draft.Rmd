@@ -552,7 +552,7 @@ for (indvar in logIvs) {
            filter(variable == indvar),
          aes(x = log(value), y = pov)) +
     geom_point() +
-    geom_smooth(method = lm) +
+    geom_smooth(formula = y ~ x, method = lm) +
     labs(title = paste0("pov ~ log(", indvar, ")"),
          x = paste0("log(", indvar, ")"),
          y = "pov")
@@ -649,54 +649,60 @@ Some significant correlations can be found between `gdr.eql` with `edu.pri`, `po
 
 We can now conduct linear regressions following the approaches mentioned above to address missing values issues.
 
-## 3.1. Use Complete Cases (To be done)
+## 3.1. Use Complete Cases (Imtiyaaz
 ###  3.1.1. Model Fitting
 ###  3.1.2. Assessment
 ###  3.1.3. Interpretation
 
-## 3.2. Selectively remove variables with high missing rate (To be done)
+## 3.2. Selectively remove variables with high missing rate (Callista)
 ###  3.2.1. Model Fitting
 ###  3.2.2. Assessment
 ###  3.2.3. Interpretation
 
-## 3.3. Update the data set as we select variables (To be done)
+## 3.3. Update the data set as we select variables (Isaac)
 ###  3.3.1. Model Fitting
 ###  3.3.2. Assessment
 ###  3.3.3. Interpretation
 
 ## 3.4. Imputation
-**1. What is imputation**  
+**What is imputation?**  
 Imputation is a technique to handle missing values by replacing missing data with substitute values. In our study, we focus on "item imputation", which means substituting for a component of a data point (i.e. a variable). The general idea is to take a value that preserve the property of the data (e.g., distribution, mean, standard deviation), and use other variables to predict the missing values (much like regression). Since we observed some correlations during descriptive analysis, we expect the imputation algorithm to work well.
 
 We use **Multivariate Imputation By Chained Equations (MICE)** as primary tool for this technique, because of its wide acceptance in scientific studies (@imputWorks). In order to use this technique, we have to assume that the "missingness" of a field can be explained by the values in other columns, (e.g., If the countries is in North America, it's more likely to be missing as we have discovered in 2.2). The general ideas of the algorithm is to fill in the missing values, and improve it iteratively until predicted values converse to a stable point. The algorithmic details of MICE is very concisely (and enthrallingly) explained in @micealgo.  
 
 We use relatively small parameters in the interest of time.
 
-- `m = 5` imputed data sets
-- `maxit = 30` iterations
+- `m = 3` imputed data sets
+- `maxit = 20` iterations
 
 The imputation method is `cart` (Classification and Regression Trees).
 
 ```{r}
 set.seed(1984)
 # split data
-isComplete <- which(complete.cases(countries1))
-idx <- sample(isComplete, replace = F, 0.3 * nrow(countries1))
-countries.train.4 <- countries1[-idx,]
-countries.test.4 <- countries1[idx,]
+seeds <- countries1 %>% 
+  group_by(country.code) %>% 
+  filter(row_number() == 1)
 
-# blank for no imputation, cart for variable requiring imputation
-meth <- c(rep("", 4), "cart", "", rep("cart", 16))
-names(meth) <- colnames(countries1)
-meth
+plants <- countries1 %>% 
+  group_by(country.code) %>% 
+  filter(row_number() != 1)
 
-# run the algorithm
-# countries1.imputed <- mice(countries1, m = 3, maxit = 20, method = meth)
+isComplete <- which(complete.cases(plants))
+idx <- sample(isComplete, replace = F, 0.2 * nrow(plants))
+
+countries.train.4 <- plants[-idx,] %>% 
+  rbind(seeds)
+countries.test.4 <- plants[idx,]
+
+
+# run the algorithm, or read from the file we generated as this is a very time-consuming process
+# countries1.imputed <- mice(countries.train.4, m = 3, maxit = 20, method = meth)
 # saveRDS(countries1.imputed, 'countries1.imputed.RData')
 countries1.imputed <- readRDS('countries1.imputed.RData')
 summary(countries1.imputed)
 ```
-We can take a look into one of the imputated data sets.
+We can take a look into one of the imputed data sets.
 ```{r}
 countries1.imputed.1 <- complete(countries1.imputed, 1)
 summary(countries1.imputed.1)
@@ -705,8 +711,8 @@ sum(!complete.cases(countries1.imputed.1))
 We found no missing cases as expected.
 
 ###  3.4.1. Model Fitting
-##### A. Ordinary Linear Regression
-We generated 3 sets of imputated (training) data. We can build separate models using each data set, and combine the estimates using [pooling rule](https://amices.org/mice/reference/pool.html#details). With all the generated data sets.
+#### A. Ordinary Linear Regression
+We generated 3 sets of imputed (training) data. We can build separate models using each data set, and combine the estimates using [pooling rule](https://amices.org/mice/reference/pool.html#details). With all the generated data sets.
 
 ```{r}
 formula.str <- 'pov ~ country.code+year+income+edu.total+hlth+mil+fdi+lbr.part+unemp+pop.gwth.total+pop.gwth.rural+pop.gwth.urban+gdp.dflt+gcf+trade+gdp.pc+lfdi+lgdp.dflt+lgdp.pc'
@@ -794,13 +800,13 @@ kable(res)
 In contradiction to expectation, `hlth` is positively correlated with `pov`, and lower-middle income countries (incomeLM) are less poor than high income countries (incomeH). `pop.gwth.total` is negatively related to `pov`, while `pop.gwth.rural` and `pop.gwth.urban` are positively related. They might be indications of over-fitting model.
 
 ```{r}
-# fit model on imputated set no. 1
+# fit model on imputed set no. 1
 summary(fit1[[1]])
 ```
 
 There are also some weak variable, we should perform some variable selection.
 
-##### B. VIF
+#### B. VIF
 
 Our data set contains a lots of variables. We can perform some variable selection to reduce over-fitting.
 
@@ -890,7 +896,7 @@ formula.str <- 'pov ~ country.code+year+income+edu.total+hlth+mil+fdi+lbr.part+u
 ```
 
 
-##### B. Step-wise AIC
+#### B. Step-wise AIC
 We can conduct a step-wise AIC variable selection. It is similar to the procedure we use in class, but based on a metric call AIC (Akaike Information Criterion), which is an estimator of prediction error and relative quality of statistical models. The lower AIC is, the better the model fits. \\
 
 ```{r}
@@ -934,7 +940,7 @@ We can compare Adjusted R-Squared to estimate relative over-fitting in the new m
 kable(res)
 ```
 
-Performance on train set and test set are not affected. However, we have simplified the model by removing some unnecessary terms. We can update our models.
+Performance on train set and test set are slightly improved. However, we have simplified the model by removing some unnecessary terms. We can update our models.
 
 ```{r}
 formula.str <- 'pov ~ country.code+year+income+edu.total+hlth+mil+lbr.part+gcf+lfdi'
@@ -993,7 +999,7 @@ kable(res)
 
 We can further treat over-fitting with regularization.
 
-##### C. Regularization
+#### C. Regularization
 
 Helper functions to standardise data.
 
@@ -1089,6 +1095,7 @@ optimalModel <- function(formula, train, test) {
       data = train,
       r2 = train.r2,
       adj.r2 = train.adjR2,
+      fitted = train.fit,
       residuals = train.resid,
       mse  = train.mse,
       rmse = train.rmse,
@@ -1099,6 +1106,7 @@ optimalModel <- function(formula, train, test) {
       data = test,
       r2 = test.r2,
       adj.r2 = test.adjR2,
+      fitted = test.fit,
       residuals = test.resid,
       mse  = test.mse,
       rmse = test.rmse,
@@ -1115,10 +1123,10 @@ optimalModel <- function(formula, train, test) {
 }
 ```
 
-Build the optimal models using each imputated data set.
+Build the optimal models using each imputed data set.
 
 ```{r}
-# helper function to build from a specific imputated data
+# helper function to build from a specific imputed data
 buildWith <- function(set, imputed, test, formula, fun) {
   train <- complete(imputed, set)
   model <- fun(formula, train, test)
@@ -1170,14 +1178,14 @@ All non-country.code variables are non-zero. We can observe that the regularisat
 
 Now we are evaluating some performance metrics, checking assumptions, and remedy some potential problems.
 
-##### A. Homoscedasticity
+#### A. Homoscedasticity
 
 Plot the residuals ~ pov
 
 ```{r}
 for (mod in models) {
   resid <- mod$train$residuals
-  fitted <- mod$train$data$pov + mod$train$residuals
+  fitted <- mod$train$fitted
   # plot(resid ~ pov, main = paste("Model", i))
   print(ggplot(mapping = aes(y = resid, x = fitted)) +
     geom_point() +
@@ -1200,13 +1208,13 @@ Under H0, the Goldfeld-Quandt test’s test statistic follows an F distribution 
 lapply(models, \(m) {
   resid <- m$train$residuals
   # apply Goldfeld-Quandt test
-  gqtest(formula = resid ~ 1, order.by = m$train$data$pov)
+  gqtest(formula = resid ~ 1, order.by = m$train$fitted)
 })
 ```
 
-There is heteroscedasticity in our models. [Generalized Least Squares With Unknown For of Variance](https://rpubs.com/cyobero/187387) is a possible remedy of this problem, but at the cost of model interpretation. The high variance in higher end of `pov` can be explained by the relative volatile economics and politic climate in highly poor countries ($pov > 0.25$), leading to unstable effect of predictors.
+There is heteroscedasticity in our models. [Generalized Least Squares With Unknown For of Variance](https://rpubs.com/cyobero/187387) is a possible remedy of this problem, but at the cost of model interpretation. The high variance in higher end of `pov` can be explained by the relative volatile economical and political climate in highly poor countries (one standard deviation from mean), leading to unstable effect of predictors.
 
-##### B. Independence
+#### B. Independence
 
 Some possible source of dependency are poverty measured on the same country, or in the same year. These are accounted in our models by controlling those variables. 
 
@@ -1214,7 +1222,7 @@ Some countries have been engaging in international wars, being under the influen
 
 A solution to resolve this is to conduct the study on countries with similar geographical characteristics. In our study, however, we are interested in the general effects of certain variable across the globe. Although there are some dependence, the large number of entities with various features, we hypothesize, will cancel each other out, resulting in a net effect that gives an overview of the influences of variables.
 
-##### C. Normally Distributed Residuals
+#### C. Normally Distributed Residuals
 
 ```{r}
 for (m in models) {
@@ -1228,11 +1236,31 @@ for (m in models) {
 
 Although quite negatively skewed, the residuals are visibly normal.
 
-##### D. Outliers
+#### D. Outliers
 
-As elastic net model produced in 
+As elastic net models produced in the last section are not very fit for detecting outliers using R-support function. As they just removed dummy variables in `country.code`, we can using OLS to detect some potential outliers. They are the same models we produced after the step-AIC selection (`fit3` and `fit4`)
+
+```{r}
+for (mod in fit3) {
+  plot(mod, which = 4)
+}
+```
+
+Some obvious outliers are point 1122, 1327, 1395, 1396, 1424, 1474.
+
+```{r}
+out <- c(1122, 1327, 1395, 1396, 1424, 1474)
+var <- c("country.code","country.name","year","pov","income","edu.total","hlth","mil","lbr.part","gcf","lfdi")
+# See the original data instead of imputed data
+countries.train.4[out,var]
+```
+
+These countries all appear very infrequently in our data set (only twice for South Sudan and St.Lucia). The gap between their appearance are quite large, too. Such reasons could have made the model struggle to predict their poverty states.
+
+Guinea is an interesting point. Because the outlier data (87.9% in 1991) is quite different to the next data point (40.8% in 1994), a huge jump in just 3 years. 
 
 ###  3.4.3. Interpretation
+
 
 # 4. Conclusion
 # 5. Appendix
