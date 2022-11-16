@@ -1257,7 +1257,15 @@ countries.train.4[out,var]
 
 These countries all appear very infrequently in our data set (only twice for South Sudan and St.Lucia). The gap between their appearance are quite large, too. Such reasons could have made the model struggle to predict their poverty states.
 
-Guinea is an interesting point. Because the outlier data (87.9% in 1991) is quite different to the next data point (40.8% in 1994), a huge jump in just 3 years. 
+Yemen's data were collected in 1998, 2005, and 2014, a huge gap in time, by when it has doubled its poverty rate.
+
+Guinea is an interesting point. Because the outlier data (87.9% in 1991) is quite different to the next data point (40.8% in 1994), a huge jump in just 3 years. This might be a consequence of the political changes (new constitution, establishment of the Supreme Court, etc.) in this period. They are the changes not captured by the variables.
+
+Gambia has the issue with Guinea, when it saw a huge reduction of poverty of 25% from 1998-2003.
+
+Lucia only has two data points with large gap in time (1995-2016). It can be difficult to know much about someone if you only met them twice, with 21 years in between.
+
+
 
 ###  3.4.3. Interpretation
 
