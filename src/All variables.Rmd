@@ -192,4 +192,11 @@ summary <- rbind(summary_model1, summary_ridge, summary_lasso)
 rownames(summary) <- c("MLR", "Ridge_model", "LASSO_model" )
 colnames(summary)[5] <- "R^2"
 knitr::kable(summary, digits = 3)
+
+
+```
+
+```{r}
+knitr::kable(summary_MLR, digits = 3)
+knitr::kable(summary_ridge[,-5], digits = 3)
 ```
