@@ -617,8 +617,69 @@ We conduct a normal linear regression, following the approaches mentioned above 
 
 ### 3.2.2. Selectively remove variables with high missing rate (To be done)
 #### 3.2.2.1. Model Fitting
+Through forward selection, we will do feature selection. We will stop the forward selection when the adjusted r-value>0.75. 
+
+Through iteration of different models. A linear model consisting of income as a predictor has the highest adjusted r-square value=0.6201, thus it is selected. 
+
+Only some of the linear models that have been explored are showed.
+```{r}
+df_count<-read.csv("../data/countries1.csv")
+set.seed(10)
+index <- sort(sample(x = nrow(df_count), size = nrow(df_count)*.8))
+train <- df_count[index, ]
+test <- df_count[-index, ]
+```
+
+Since income as a predictor brought the highest adjusted r-value, we add another predictor to income to find the predictor added to income which produced the highest adjusted r-value. reg as a predictor has the highest adjusted r-value=0.7181
+
+```{r}
+summary(lm(formula = pov ~ reg+income,data = train)) #0.7181
+```
+
+The forward selection process continues and lgdp.pc is the new predictor added that produced highest adjusted r-square=0.7492
+```{r}
+summary(lm(formula = pov ~ edu.total+income+reg,data = train)) #0.7347
+```
+
+The addition of predictor gdp.pc produces the highest adjusted r-square value above 0.75, adjusted r-square=0.7703
+```{r}
+summary(lm(formula = pov ~ gdp.pc+income+reg+lgdp.pc,data = train)) #0.7703
+```
+
+Fitting of multiple linear regression with predictor gdp.pc, income, reg and lgd.pc.
+```{r}
+lm1<-lm(formula = pov ~ gdp.pc+income+reg+lgdp.pc,data = train)
+summary(lm1)
+```
+
 #### 3.2.2.2. Assessment
+Assessment of linear model lm1: 
+the predicted model has some NA values which are removed. The error rates are too high, therefore, this method of variable selection may not be suitable
+```{r}
+eval.metrics.linreg <- function(actual, predicted) {
+  residual <- actual - predicted
+  mse <- mean(residual ^ 2)
+  mae <- mean(abs(residual))
+  rmse <-  sqrt(mse)
+  mape <- mean(abs(residual / actual)) * 100
+  
+  data.frame(
+    MSE = mse,
+    MAE = mae,
+    RMSE = rmse,
+    MAPE = mape
+  )
+}
+predicted<-predict(lm1,newdata=test)
+actual<-test$pov
+df23<-na.omit(data.frame(actual,predicted))
+ac<-df23$actual
+pr<-df23$predicted
+eval.metrics.linreg(ac,pr)
+```
+
 #### 3.2.2.3. Interpretation
+gdp per capital, income class and region of the country can provide a model to predict the poverty headcount ratio in a country.
 
 ### 3.2.3. Update the data set as we select variables (To be done)
 #### 3.2.3.1. Model Fitting

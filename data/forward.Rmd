@@ -10,8 +10,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 df_count<-read.csv("../data/countries1.csv")
-head(df_count)
-
 set.seed(10)
 index <- sort(sample(x = nrow(df_count), size = nrow(df_count)*.8))
 train <- df_count[index, ]
@@ -20,11 +18,11 @@ test <- df_count[-index, ]
 
 Through forward selection, we will do feature selection. We will stop the forward selection when the adjusted r-value>0.75. 
 
-Through iteration of different models, a linear model consisting of income as a predictor has the highest adjusted r-square value=0.6201. 
+Through iteration of different models. A linear model consisting of income as a predictor has the highest adjusted r-square value=0.6201, thus it is selected. 
 
-Below are some of the linear models that have been explored.
+Only some of the linear models that have been explored are showed.
 ```{r cars}
-summary(lm(formula = pov ~ income,data = train)) #0.6201
+sum1<-summary(lm(formula = pov ~ income,data = train)) #0.6201
 summary(lm(formula = pov ~ reg,data = train)) #0.5569
 summary(lm(formula = pov ~ edu.total,data = train)) #0.09577
 summary(lm(formula = pov ~ hlth,data = train)) #0.0921
