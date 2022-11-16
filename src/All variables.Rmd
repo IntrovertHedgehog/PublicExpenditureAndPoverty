@@ -87,9 +87,6 @@ vif(model1)
 
 ```
 ```{r}
-
-```
-```{r}
 subset2 <- subset(subset1,select =c("pov","income","edu.total","hlth","mil","fdi","lbr.part","unemp","pop.gwth.total","pop.gwth.rural","gdp.dflt","gcf","trade","gdp.pc","lfdi","lgdp.dflt","lgdp.pc"))
 subset2 <- na.omit(subset2)
 train.x <- data.matrix(subset(subset2, select = -pov))
@@ -107,6 +104,8 @@ training <- subset2[sample, ]
 test <- subset2[-sample, ]
 
 ```
+
+
 ```{r}
 corrplot(cor(subset2, use = "complete.obs"), 
          method = "number",
@@ -174,9 +173,9 @@ t(coef(glm_lasso))
 
 ```{r}
 # Obtain performance of MLR model
-#fit <- model1$fitted.values
-#true <- subset1$Price
-#summary_model1 <- eval_results(true, fit)
+fit <- model1$fitted.values
+true <- subset2$pov
+summary_model1 <- eval_results(true, fit)
 
 # Obtain performance of ridge model
 fit <- predict(glm_ridge, newx = train.x)
@@ -189,8 +188,8 @@ true <- train.y
 summary_lasso <- eval_results(true, fit)
 
 # Combine all performances into a single output
-summary <- rbind(summary_ridge, summary_lasso)
-rownames(summary) <- c( "Ridge_model", "LASSO_model" )
+summary <- rbind(summary_model1, summary_ridge, summary_lasso)
+rownames(summary) <- c("MLR", "Ridge_model", "LASSO_model" )
 colnames(summary)[5] <- "R^2"
-knitr::kable(summary, digits = 2)
+knitr::kable(summary, digits = 3)
 ```
