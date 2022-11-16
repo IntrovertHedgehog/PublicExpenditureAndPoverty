@@ -18,6 +18,7 @@ library(DescTools)
 library(glmnet)
 ```
 
+First we will write the function "eval_results(true,predict) to evaluate the models
 ```{r}
 eval_results <- function(true, predict) {
   actual <- data.matrix(true)
@@ -28,23 +29,20 @@ eval_results <- function(true, predict) {
     MSE = MSE(predict, true),
     MAE = MAE(predict, true),
     RMSE = RMSE(predict, true),
-    MAPE = MAPE(predict, true),
     Rsquare = R_square
   )
 }
 ```
-
-
-
+First we read the csv file for the countries containing the dataset. We will then put the variables we need in to subset1.
 ```{r}
 df <-read.csv('../data/countries1.csv')
 df
-subset1 <- df %>% select("pov","income","edu.total","hlth","mil","fdi","lbr.part","unemp","pop.gwth.total","pop.gwth.rural","gdp.dflt","gcf","trade","gdp.pc","lfdi","lgdp.dflt","lgdp.pc")
+subset1 <- df %>% select("pov","country.code","year","income","edu.total","hlth","mil","fdi","lbr.part","unemp","pop.gwth.total","pop.gwth.rural","gdp.dflt","gcf","trade","gdp.pc","lfdi","lgdp.dflt","lgdp.pc")
 subset1
 ```
 
 
-
+Next we will build a SLR model. We will put 80% of dataset to train and the rest to test.
 ```{r}
 set.seed(10)
 index <- sort(sample(x = nrow(subset1), size = nrow(subset1)*.8))
@@ -52,34 +50,71 @@ train <- df[index, ]
 test <- df[-index, ]
 ```
 
-
-
-
-
-
-
+The model output will be placed in lm.slr and can be viewed in summary(lm.slr). THe r-squared value is 0.9619.
 ```{r}
-lm.slr <- lm(pov ~ income+edu.total+hlth+mil+fdi+lbr.part+unemp+pop.gwth.total+pop.gwth.rural+gdp.dflt+gcf+trade+gdp.pc+lfdi+lgdp.dflt+lgdp.pc,data = train)
+lm.slr <- lm(pov ~ country.code+year+income+edu.total+hlth+mil+fdi+lbr.part+unemp+pop.gwth.total+pop.gwth.rural+gdp.dflt+gcf+trade+gdp.pc+lfdi+lgdp.dflt+lgdp.pc,data = train)
 summary(lm.slr)
 
 ```
+Next we will be perfoming regularisation. We have to use this function as not all the varibales are numerical. Therefore to overcome it we build the function below.
 ```{r}
 subset1$income <- factor(subset1$income)
-subset1$income <- as.numeric(subset1$income)
+subset1$country.code <- factor(subset1$country.code)
 
 
+
+sd0 <- function(vct) {
+  if (!is.numeric(vct)) {
+    return(NA)
+  }
+  
+  return(sd(vct, na.rm = T))
+}
+
+
+std0 <- function(vct, scl) {
+  if (!is.numeric(vct)) {
+    return(vct)
+  }
+  
+  return(vct/scl)
+}
+
+scale <- function(data) {
+  unlist(lapply(data, sd0))
+}
+
+standardise <- function(data) {
+  scaler <- scale(data)
+  
+  numCols <- which(unlist(lapply(data, is.numeric)))
+  num <- as.data.frame(mapply(std0, vct = data[,numCols], scl = scaler[numCols], SIMPLIFY = T))
+  fct <- data[,-numCols]
+  return(cbind(fct, num))
+}
 ```
 
-
+Next we will perform standardistation to the dataset.
 ```{r}
 str(subset1)
 df0 <- subset1
-scaler <- apply(X = df0, MARGIN = 2, FUN = sd)
-subset1 <- as.data.frame(apply(df0, 2, function(x) x/sd(x, na.rm = TRUE)))
 subset1
 apply(subset1, 2, sd)
 
+
 ```
+
+Next we will plot a pov vs income scatter plot to see the effect of income on pov. From the scatter plot, we can deduce that the low income countries have a higher pov while the higher income countries have low pov. This is consistent with our hypothesis that countries that are richer do not have as much poverty issue as the poorer countries.
+```{r}
+ggplot(data = subset1, aes(x = income, y = pov)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(title = "Pov vs. Income ",
+       x = "income",
+       y = "pov")
+
+```
+
 ```{r}
 model1 <- lm(pov ~ ., data = subset1)
 summary(model1)
@@ -87,30 +122,57 @@ vif(model1)
 
 ```
 ```{r}
-subset2 <- subset(subset1,select =c("pov","income","edu.total","hlth","mil","fdi","lbr.part","unemp","pop.gwth.total","pop.gwth.rural","gdp.dflt","gcf","trade","gdp.pc","lfdi","lgdp.dflt","lgdp.pc"))
+subset2 <- subset(subset1,select =c("pov","country.code","year","income","edu.total","hlth","mil","fdi","lbr.part","unemp","pop.gwth.total","pop.gwth.rural","gdp.dflt","gcf","trade","gdp.pc","lfdi","lgdp.dflt","lgdp.pc"))
 subset2 <- na.omit(subset2)
+subset2
 train.x <- data.matrix(subset(subset2, select = -pov))
 train.y = data.matrix(subset2$pov)
 ```
 
+
 ```{r}
-corrplot(cor(subset2, use = "complete.obs"), 
-         method = "number",
-         type = "upper",
-         tl.col = "black", 
-         tl.srt = 30
-         )
+split_train_test <- function(data) {
+set.seed(1984)
+# split data
+seeds <- data %>% 
+  group_by(country.code) %>% 
+  filter(row_number() == 1)
+
+plants <- data %>% 
+  group_by(country.code) %>% 
+  filter(row_number() != 1)
+
+isComplete <- which(complete.cases(plants))
+idx <- sample(isComplete, replace = F, 0.2 * nrow(plants))
+
+training <- plants[-idx,] %>% 
+  rbind(seeds)
+test <- plants[idx,]
+
+return(list(training, test))
+}
 ```
 
 ```{r}
-set.seed(123)
-rate <- 0.8
-train.size <- round(nrow(subset2)*rate)
-sample(sample(nrow(subset2), train.size))
-training <- subset2[sample, ]
-test <- subset2[-sample, ]
 
+training <- split_train_test(subset2)[[1]]
+test <- split_train_test(subset2)[[2]]
 ```
+
+```{r}
+ntrain <- 1:nrow(training)
+combine <- rbind(training, test)
+combine.mtrx <- model.matrix(pov ~ ., data = combine)
+train.mtrx <- combine.mtrx[ntrain,]
+test.mtrx <- combine.mtrx[-ntrain,]
+
+train.x <- train.mtrx[,-1]
+train.y <- training$pov
+
+test.x <- test.mtrx[,-1]
+text.y <- test$pov
+```
+
 ```{r}
 model3 <- lm(pov ~., data = training)
 summary(model3)
@@ -214,151 +276,4 @@ rownames(summary_3models) <- c("Baseline MLR_Train", "Ridge Model_Train",
 knitr::kable(summary_3models[1:3,-5], digits = 3)
 knitr::kable(summary_3models[4:6,-5], digits = 3)
 
-```
-
-```{r}
-set.seed(123)
-cv_ridge <- cv.glmnet(train.x, train.y, alpha = 0)
-glm_ridge <- glmnet(train.x,
-                    train.y,
-                    alpha = 0,
-                    lambda = cv_ridge$lambda.min)
-t(coef(glm_ridge))
-
-```
-
-
-```{r}
-train.x <- model.matrix(pov ~., data = training)[, -1]
-train.y <- training$pov
-test.x <- model.matrix(pov ~., data = test)[,-1]
-test.y <- test$pov
-```
-
-```{r}
-model_ridge_trial1 <- glmnet(train.x, train.y, alpha = 0, lambda = 0.1)
-t(coef(model_ridge_trial1))
-```
-
-```{r}
-model_ridge_trial2 <- glmnet(train.x, train.y, alpha = 0, lambda = 0.5)
-t(coef(model_ridge_trial2))
-```
-
-```{r}
-model_ridge_trial3 <- glmnet(train.x, train.y, alpha = 0, lambda = 1)
-t(coef(model_ridge_trial3))
-```
-
-
-```{r}
-table_summary <- cbind(coef(model_ridge_trial1),
-                       coef(model_ridge_trial2),
-                       coef(model_ridge_trial3))
-
-colnames(table_summary) <- c("lambda = 0.1",
-                             "lambda = 0.5",
-                             "lambda = 1")
-
-table_summary
-```
-
-
-```{r}
-set.seed(123)
-cv_lasso <- cv.glmnet(train.x,train.y, alpha = 1)
-glm_lasso <- glmnet(train.x,train.y, 
-                    alpha = 1, lambda = cv_lasso$lambda.min)
-t(coef(glm_lasso))
-```
-
-```{r}
-# Obtain performance of MLR model
-fit <- model1$fitted.values
-true <- subset2$pov
-summary_model1 <- eval_results(true, fit)
-
-# Obtain performance of ridge model
-fit <- predict(glm_ridge, newx = train.x)
-true <- train.y
-summary_ridge <- eval_results(true, fit)
-
-# Obtain performance of LASSO model
-fit <- predict(glm_lasso, newx = train.x)
-true <- train.y
-summary_lasso <- eval_results(true, fit)
-
-# Combine all performances into a single output
-summary <- rbind(summary_model1, summary_ridge, summary_lasso)
-rownames(summary) <- c("MLR", "Ridge_model", "LASSO_model" )
-colnames(summary)[5] <- "R^2"
-knitr::kable(summary, digits = 3)
-
-
-```
-
-```{r}
-knitr::kable(summary_MLR, digits = 3)
-knitr::kable(summary_ridge[,-5], digits = 3)
-```
-
-```{r}
-# Fit Ridge Regression Model
-set.seed(123)
-cv_ridge <- cv.glmnet(train.x, train.y, alpha = 0)
-glm_ridge <- glmnet(train.x, train.y, 
-                    alpha = 0, lambda = cv_ridge$lambda.min)
-
-# Evaluate Ridge Regression Model on Training Set
-fit <- predict(glm_ridge, newx = train.x, type = "response")
-true <- train.y
-summary_ridge_train <- eval_results(true, fit)
-
-
-# Evaluate Ridge Regression Model on Test Set
-fit <- predict(glm_ridge, newx = test.x, type = "response")
-true <- test.y
-summary_ridge_test <- eval_results(true, fit)
-
-# Summarise Ridge Regression Model Performance into Table
-summary_ridge <- rbind(summary_ridge_train, summary_ridge_test)
-rownames(summary_ridge) <- c("Ridge Model_Train", "Ridge Model_Test" )
-```
-
-```{r}
-# Fit LASSO Model
-set.seed(123)
-cv_lasso <- cv.glmnet(train.x,train.y, alpha = 1)
-glm_lasso <- glmnet(train.x,train.y, alpha = 1, 
-                    lambda = cv_lasso$lambda.min)
-
-# Evaluate LASSO Model on Training Set
-fit <- predict(glm_lasso, newx = train.x)
-true <- train.y
-summary_lasso_train <- eval_results(true, fit)
-
-# Evaluate LASSO Model on Test Set
-fit <- predict(glm_lasso, newx = test.x)
-true <- test.y
-summary_lasso_test <- eval_results(true, fit)
-
-# Summarise LASSO Model Performance into Table
-summary_lasso <- rbind(summary_lasso_train, summary_lasso_test)
-rownames(summary_lasso) <- c("LASSO Model_Train", "LASSO Model_Test" )
-```
-
-```{r}
-summary_3models <- rbind(summary_MLR3_train, 
-                         summary_ridge_train,                               
-                         summary_lasso_train, 
-                         summary_MLR3_test,                             
-                         summary_ridge_test, 
-                         summary_lasso_test)
-
-rownames(summary_3models) <- c("Baseline MLR_Train", "Ridge Model_Train", 
-                               "LASSO Model_Train",  "Baseline MLR_Test",  
-                               "Ridge Model_Test", "LASSO Model_Test" )
-
-knitr::kable(summary_3models[1:3,-5], digits = 3)
-knitr::kable(summary_3models[4:6,-5], digits = 3)
 ```
