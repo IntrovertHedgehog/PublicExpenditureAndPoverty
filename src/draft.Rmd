@@ -740,7 +740,7 @@ The imputation method is `cart` (Classification and Regression Trees).
 
 ```{r}
 set.seed(1984)
-# split data
+# split data, make sure all the coutries
 seeds <- countries1 %>% 
   group_by(country.code) %>% 
   filter(row_number() == 1)
@@ -1230,6 +1230,7 @@ Coefficients overview.
 var <- c("year","incomeL","incomeLM","incomeUM","edu.total","hlth","mil","lbr.part","gcf","lfdi")
 
 res <- do.call(rbind, lapply(models, \(f) coefficients(f$model)[var,]))
+res <- cbind(data.frame(Set = 1:3), res)
 kable(res)
 ```
 
@@ -1326,7 +1327,36 @@ Gambia has the issue with Guinea, when it saw a huge reduction of poverty of 25%
 
 Lucia only has two data points with large gap in time (1995-2016). It can be difficult to know much about someone if you only met them twice, with 21 years in between.
 
+These data seems valid and there is no convincing reasons to remove them from the model (in the case of Guinea and Gambia, maybe there was some false reports because the jump were quite suspicious, but we need more evidence to conclude that they are false data).
+
 ###  3.4.3. Interpretation
+
+Final model coefficients (exclude `country.code`):
+
+```{r}
+var <- c("year","incomeL","incomeLM","incomeUM","edu.total","hlth","mil","lbr.part","gcf","lfdi")
+
+res <- do.call(rbind, lapply(models, \(f) coefficients(f$model)[var,]))
+res <- cbind(data.frame(Set = 1:3), res)
+kable(res)
+```
+
+We should convert them to un-standardised value for easier interepretation.
+
+```{r}
+var <- c("year","incomeL","incomeLM","incomeUM","edu.total","hlth","mil","lbr.part","gcf","lfdi")
+
+res <- do.call(rbind, lapply(models, \(f) {
+  # get scaler saved in the model
+  scaler <- f$scaler
+  # categorical has scaler = 1
+  scaler[c("incomeL","incomeLM","incomeUM")] <- 1
+  # beta = std.beta * sigma_y / sigma_x
+  coefficients(f$model)[var,] * scaler['pov'] / scaler[var]
+}))
+kable(res)
+```
+
 
 
 # 4. Conclusion
