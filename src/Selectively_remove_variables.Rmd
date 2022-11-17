@@ -21,16 +21,13 @@ library(e1071)
 library(car)
 library(glmnet)
 library(corrplot)
+library(plotmo)
 ```
 
 ```{r}
 countries <- read.csv("../data/countries.csv")
 ```
 
-
-```{r}
-head(countries)
-```
 ###  3.2.1. Model Fitting
 ##### A. Ordinary Linear Regression
 Previous analysis showed that of all the variables in the countries.csv dataset, many of them had a high missing rate of above 35%, an arbitrary percentage that our group has chosen to filter the predictor variables. This section attempts to build a model on variables that have missing rates of below 35%.
