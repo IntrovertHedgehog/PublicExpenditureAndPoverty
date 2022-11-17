@@ -930,9 +930,389 @@ knitr::kable(summary_3models[4:6,-5], digits = 3)
 From the 3 models we can see that the original multi linear regression model is the best one with the highest R^squared value. However the Lasso Regression Model has the lowest MSE, MAE and RMSE. We can conclude that the reason for the first model having the highest R^squared value might be due to overfitting as many values will get removed. Next we will build other models to see if they work better.
 
 ## 3.2. Selectively remove variables with high missing rate (Callista)
+---
+title: "Selectively Remove Variables"
+author: "Callista Stephine Yu"
+date: "2022-11-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(knitr)
+library(readr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(stats)
+library(tidyverse)
+library(e1071)
+library(car)
+library(glmnet)
+library(corrplot)
+```
+
+```{r}
+countries <- read.csv("../data/countries.csv")
+```
+
 ###  3.2.1. Model Fitting
+##### A. Ordinary Linear Regression
+Previous analysis showed that of all the variables in the countries.csv dataset, many of them had a high missing rate of above 35%, an arbitrary percentage that our group has chosen to filter the predictor variables. This section attempts to build a model on variables that have missing rates of below 35%.
+
+The previous analysis showed that the relations between the predicted variable and gdp.pc, gdp.dflt, and fdi are better fitted to logarithmic models. Hence, we transformed the data with the mutate() function before building the machine learning model.
+```{r}
+
+subset0 <- subset(countries, select = c("country.code", "year","edu.total", "fdi","gcf","gdp.dflt","hlth","income","lbr.part","mil","pop.gwth.rural","pop.gwth.urban","pov","trade", "unemp", "year","gdp.pc" ))
+
+subset1_0 <- subset0 %>% mutate(lfdi = log(subset0$fdi)) %>% mutate(lgdp.pc = log(subset0$gdp.pc)) %>% mutate(lgdp.dflt = log(subset0$gdp.dflt))
+
+```
+subset1 contains the variables below 35% of missing values. 
+```{r}
+subset1 <- subset(subset1_0, select = c("edu.total", "lfdi","gcf","lgdp.dflt","hlth","income","lbr.part","mil","pop.gwth.rural","pop.gwth.urban","pov","trade", "unemp", "year","lgdp.pc"))
+
+subset1 <- na.omit(subset1)
+```
+We also performed standardisation to reduce the variance of our machine learning models. Below are the functions used to aid our standardisation step. 
+```{r}
+sd0 <- function(vct) {
+  if (!is.numeric(vct)) {
+    return(NA)
+  }
+  
+  return(sd(vct, na.rm = T))
+}
+
+
+std0 <- function(vct, scl) {
+  if (!is.numeric(vct)) {
+    return(vct)
+  }
+  
+  return(vct/scl)
+}
+
+scale <- function(data) {
+  unlist(lapply(data, sd0))
+}
+
+standardise <- function(data) {
+  scaler <- scale(data)
+  
+  numCols <- which(unlist(lapply(data, is.numeric)))
+  num <- as.data.frame(mapply(std0, vct = data[,numCols], scl = scaler[numCols], SIMPLIFY = T))
+  fct <- data[,-numCols]
+  return(cbind(fct, num))
+}
+
+
+```
+
+```{r}
+
+df.countries0 <- standardise(subset1)
+df.countries <- df.countries0
+```
+
+```{r}
+#Divide each feature/target by its standard deviation
+
+
+head(df.countries)
+```
+
+First, we split the data into training and testing data. 
+```{r}
+set.seed(123)
+index <- sort(sample(x = nrow(df.countries), size = nrow(df.countries) * 0.8))
+train_1 <- subset1[index,]
+test_1 <- subset1[-index,]
+
+```
+
+Our first attempt 
+```{r}
+#Everything
+lm_1 <- lm(data= train_1, formula = pov ~ .)
+summary(lm_1)
+```
+
+The summary of `lm_1` suggests that the model still contains predictor variables with pr(>|t|) > 0.05. We can imply that these variables do not provide a high significance to our model and are thus able to be removed. To avoid removing significant variables, we shall conduct the removal of the variables deliberately. In `lm_1`, we notice that the variable `lgdp.dflt` has a high Pr(>|t|). Hence, we remove `lgdp.dflt`.
+
+```{r}
+#remove hlth 
+lm_2 <- lm(data= train_1, formula = pov ~ .-lfdi - lgdp.dflt)
+summary(lm_2)
+plot(lm_2, which = 5)
+```
+
+```{r}
+#Remove lgdp.dflt
+lm_3 <- lm(data= train_1, formula = pov ~ . -lgdp.dflt)
+summary(lm_3)
+plot(lm_3, which = 5)
+```
+```{r}
+#remove lfdi
+lm_4 <- lm(data= train_1, formula = pov ~ . -hlth - lgdp.dflt - lfdi)
+summary(lm_4)
+plot(lm_4, which = 5)
+```
+Our model shows that among all the 13 predictor variables that we started with, only 11 of them showed significance in building the model. 
+
+We then evaluated the results of the model. 
+```{r}
+#evaluating lm_4
+eval.metrics.linreg <- function(actual, predicted) {
+  residual <- actual - predicted
+  mse <- mean(residual ^ 2)
+  mae <- mean(abs(residual))
+  rmse <-  sqrt(mse)
+  mape <- mean(abs(residual / actual)) * 100
+  
+  
+  data.frame(
+    MSE = mse,
+    MAE = mae,
+    RMSE = rmse,
+    MAPE = mape
+  )
+}
+```
+
+```{r}
+actual <- train_1$pov
+predicted <- predict(lm_4, newdata = train_1)
+eval.metrics.linreg(actual, predicted)
+```
+The MAPE shows `Inf` due to the presence of 0 values in the Y variable. 
+
+##### B. Regularization
+Manual multiple regression models are prone to standard error. Hence, Ridge regression and LASSO regression are also used to build our model. 
+
+Next, we will perform Ridge regression and LASSO regression in a dataset that contains `country.code` and `year` in addition to the previous dataset that we used for the previous linear regression model. 
+```{r}
+#Subsetting the data
+
+data0 <- subset(subset1_0, select = c("country.code","year","edu.total", "lfdi","gcf","lgdp.dflt","hlth","income","lbr.part","mil","pop.gwth.rural","pop.gwth.urban","pov","trade", "unemp", "year","lgdp.pc"))
+data <- na.omit(data0)
+train.x <- data.matrix(subset(data, select = -pov))
+train.y <- data.matrix(data$pov)
+
+```
+
+Splitting the aforementioned dataset into training and testing data. 
+
+```{r}
+split_train_test <- function(data) {
+set.seed(1984)
+# split data
+seeds <- data %>% 
+  group_by(country.code) %>% 
+  filter(row_number() == 1)
+
+plants <- data %>% 
+  group_by(country.code) %>% 
+  filter(row_number() != 1)
+
+isComplete <- which(complete.cases(plants))
+idx <- sample(isComplete, replace = F, 0.2 * nrow(plants))
+
+training <- plants[-idx,] %>% 
+  rbind(seeds)
+test <- plants[idx,]
+
+return(list(training, test))
+}
+```
+
+```{r}
+training <- split_train_test(data)[[1]]
+test <- split_train_test(data)[[2]]
+```
+Further splitting the training and testing data into  `train.x` and `train.y`
+```{r}
+ntrain <- 1:nrow(training)
+combine <- rbind(training, test)
+combine.mtrx <- model.matrix(pov ~ ., data = combine)
+train.mtrx <- combine.mtrx[ntrain,]
+test.mtrx <- combine.mtrx[-ntrain,]
+
+train.x <- train.mtrx[,-1]
+train.y <- training$pov
+
+test.x <- test.mtrx[,-1]
+text.y <- test$pov
+```
+
+Building a model with the lambda that outputs the smallest MSE. 
+```{r}
+cv_ridge <- cv.glmnet(train.x, train.y, alpha = 0)
+glm_ridge <- glmnet(train.x, train.y, alpha = 0, lambda = cv_ridge$lambda.min)
+
+
+t(coef(glm_ridge))
+```
+The ridge regression model shows that some countries have a higher influence on the model than others. At first glance,it seems like the Y variable, `pov`, depends heavily on whether or not it belongs to certain countries.To further illustrate the significance of `country.code`, we will plot the ridge regression graph for different lambda values. 
+```{r}
+#generate sequence of lambda values 
+lambda <- 10^seq(-6, 2, length = 100)
+ridge_model = glmnet(train.x, train.y, alpha = 0, lambda = lambda)
+
+t(coef(ridge_model))
+```
+Plotting the coefficients against different lambda values. 
+
+```{r}
+plot_glmnet(ridge_model)
+```
+
+Interesting! For a low lambda value, the model exhibits `cntr.MDG`, which represents Madagascar, followed by `cntr.ZMB`, which represents Zimbabwe,  as key predictor variables.
+This means that the model depends highly on whether the country is Madagascar or Zimbabwe, followed by some other significant countries. The other variables that previously defined the model is now undermined by the presence of the `country.code` variable and does not show high influence. 
+
+We then proceeded to evaluate the results 
+
+```{r}
+eval_results <- function(fit, true) {
+  actual <- data.matrix(true)
+  SSE <- sum((actual - fit)^2)
+  SST <- sum((actual - mean(actual))^2)
+  R_square <- 1 - SSE/SST
+  data.frame(
+    MSE = MSE(fit, true),
+    MAE = MAE(fit, true),
+    RMSE = RMSE(fit, true),
+    MAPE = MAPE(fit, true),
+    R2  = R_square
+    
+  )
+}
+```
+
+```{r}
+fit <- predict(glm_Ridge, train.x)
+true <- train.y
+summary_Ridge_train <- eval_results(fit, true)
+summary_Ridge_train
+```
+The training dataset produced a much higher value compared to the regular multiple regression model shown above. 
+
+Fitting the model to the test dataset,
+
+```{r}
+fit <- predict(glm_Ridge, test.x)
+true <- test.y
+summary_Ridge_test <- eval_results(fit, true)
+summary_Ridge_test
+```
+A slightly lower R^2 value, but still proves that the model is good enough. 
+
+Below is the summary of the results of the training and testing dataset. 
+```{r}
+summary_Ridge <- rbind(summary_Ridge_train, summary_Ridge_test)
+rownames(summary_Ridge) <- c("Ridge_train", "Ridge_test")
+knitr::kable(summary_Ridge, digits = 3)
+
+```
+Next, we attempted LASSO regression as well. The steps are essentially similar to that of Ridge regression. 
+```{r}
+#Train a LASSO regression model
+set.seed(123)
+cv_lasso <- cv.glmnet(train.x, train.y, alpha = 1, type.measure = "mse")
+```
+
+```{r}
+cv_lasso
+```
+
+```{r}
+plot(cv_lasso)
+```
+
+```{r}
+glm_Lasso <- glmnet(train.x, train.y, alpha = 1, lambda = cv_lasso$lambda.min)
+t(coef(glm_Lasso))
+```
+It is evident that the number of variables included in the model is less than that of ridge regression. This is in accordance with the nature of the LASSO regression model that reduces the coefficients of certain predictor variables to zero for model interpretability. 
+
+```{r}
+lambda <- 10^seq(-6, 2, length = 100)
+lasso_model = glmnet(train.x, train.y, alpha = 1, lambda = lambda)
+
+t(coef(lasso_model))
+```
+```{r}
+plot_glmnet(lasso_model)
+```
+```{r}
+plot_glmnet(ridge_model)
+```
+
+```{r}
+fit2 <- predict(glm_Lasso, train.x)
+true2 <- train.y
+summary_Lasso_train <- eval_results(fit2, true2)
+summary_Lasso_train
+```
+
+```{r}
+plot_glmnet(lasso_model)
+```
+
+```{r}
+fit3 <- predict(glm_Lasso, test.x)
+true3 <- test.y
+summary_Lasso_test <- eval_results(fit3, true3)
+summary_Lasso_test
+```
+```{r}
+summary_lasso <- rbind(summary_Lasso_train, summary_Lasso_test)
+rownames(summary_lasso) <- c("LASSO_train", "LASSO_test")
+knitr::kable(summary_lasso, digits = 3)
+
+```
 ###  3.2.2. Assessment
-###  3.2.3. Interpretation
+
+This section recapitulates the three models that we have generated so far through the method of gradually removing variables from the original dataset. 
+
+```{r}
+summary(lm_4)
+```
+
+Our first model, `lm_4`, generated with regular multiple linear regression exhibits the lowest R^2 value. The model shows that `incomeL` is the most significant predictor variable with the highest coefficient. One interesting observation is that `incomeLM` and `incomeUM` has a negative correlation with the pov level, in contrast to `incomeL`. This shows that countries that have lower income tend to have high `pov` value. On the other hand, countries that are classified to have lower middle income and upper middle income seem to have lower `pov` values, as shown by their negative coefficients in the regression model.
+
+Apart from income, some other variables that contribute more significantly to the model are `lgdp.pc`, with a coefficient of -3.13114, exhibiting a stronger negative correlation, and `pop.gwth.urban`, exhibiting a stronger positive correlation with a coefficient of 1.90680. This is counter-intuitive, as the notion is that population growth in cities will help drive positive economic change due to the number of productive people living in the city. 
+The model also shows that `pop.gwth.rural` gives a less significant impact on `pov` as compared to  `pop.gwth.rural`. 
+
+
+```{r}
+knitr::kable(summary_lasso, digits = 3)
+```
+
+```{r}
+knitr::kable(summary_Ridge, digits = 3)
+```
+The MSE for the LASSO regression model is slightly higher than that of the Ridge regression model. This to be expected, as the Ridge regression model aims for an improved accuracy while the LASSO model aims for an improved interpretability. Both models seem to exhibit very high R^2 value for both the training and testing dataset. 
+
+```{r}
+plot_glmnet(lasso_model)
+```
+```{r}
+
+```
+
+```{r}
+plot_glmnet(ridge_model)
+```
+```{r}
+plot(lm_4, which = 5)
+```
+The `Residual vs Leverage` plot of `lm_4` suggests that heteroskedasticity might be present in the model. This means that the variance of the residuals is unequal over a range of observed values. This problem exists in the dataset rather than the models generated.
+
 
 ## 3.3. Update the data set as we select variables (Isaac)
 ###  3.3.1. Model Fitting 
