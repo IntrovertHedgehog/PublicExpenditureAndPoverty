@@ -726,7 +726,7 @@ eval.metrics.linreg(ac,pr)
 ```
 
 ###  3.3.3. Interpretation
-gdp per capital, income class and region of the country can provide a model to predict the poverty headcount ratio in a country.
+gdp per capital, income class and region of the country can provide a model to predict the poverty headcount ratio in a country. The error rate of the model is high on the testing data set, showing it may not be a good model.
 
 ## 3.4. Imputation
 **What is imputation?**  
