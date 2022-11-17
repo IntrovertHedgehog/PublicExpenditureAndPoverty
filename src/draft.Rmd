@@ -698,7 +698,7 @@ train <- df[index, ]
 test <- df[-index, ]
 ```
 
-The model output will be placed in lm.slr and can be viewed in summary(lm.slr). THe r-squared value is 0.9619.
+The model output will be placed in lm.slr and can be viewed in summary(lm.slr).
 ```{r}
 lm.slr <- lm(pov ~ country.code+year+income+edu.total+hlth+mil+fdi+lbr.part+unemp+pop.gwth.total+pop.gwth.rural+gdp.dflt+gcf+trade+gdp.pc+lfdi+lgdp.dflt+lgdp.pc,data = train)
 summary(lm.slr)
@@ -930,29 +930,9 @@ knitr::kable(summary_3models[4:6,-5], digits = 3)
 From the 3 models we can see that the original multi linear regression model is the best one with the highest R^squared value. However the Lasso Regression Model has the lowest MSE, MAE and RMSE. We can conclude that the reason for the first model having the highest R^squared value might be due to overfitting as many values will get removed. Next we will build other models to see if they work better.
 
 ## 3.2. Selectively remove variables with high missing rate (Callista)
----
-title: "Selectively Remove Variables"
-author: "Callista Stephine Yu"
-date: "2022-11-07"
-output: html_document
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
 ```{r}
-library(knitr)
-library(readr)
-library(tidyr)
-library(dplyr)
-library(ggplot2)
-library(stats)
-library(tidyverse)
-library(e1071)
-library(car)
-library(glmnet)
-library(corrplot)
+needs("knitr","readr","tidyr","dplyr","ggplot2","stats","tidyverse","e1071","car","glmnet","corrplot","plotmo")
 ```
 
 ```{r}
@@ -1062,7 +1042,7 @@ lm_4 <- lm(data= train_1, formula = pov ~ . -hlth - lgdp.dflt - lfdi)
 summary(lm_4)
 plot(lm_4, which = 5)
 ```
-Our model shows that among all the 13 predictor variables that we started with, only 11 of them showed significance in building the model. 
+Our model shows that among all the 14 predictor variables that we started with, only 11 of them showed significance in building the model. 
 
 We then evaluated the results of the model. 
 ```{r}
@@ -1152,10 +1132,10 @@ text.y <- test$pov
 Building a model with the lambda that outputs the smallest MSE. 
 ```{r}
 cv_ridge <- cv.glmnet(train.x, train.y, alpha = 0)
-glm_ridge <- glmnet(train.x, train.y, alpha = 0, lambda = cv_ridge$lambda.min)
+glm_Ridge <- glmnet(train.x, train.y, alpha = 0, lambda = cv_ridge$lambda.min)
 
 
-t(coef(glm_ridge))
+t(coef(glm_Ridge))
 ```
 The ridge regression model shows that some countries have a higher influence on the model than others. At first glance,it seems like the Y variable, `pov`, depends heavily on whether or not it belongs to certain countries.To further illustrate the significance of `country.code`, we will plot the ridge regression graph for different lambda values. 
 ```{r}
@@ -2015,8 +1995,5 @@ res <- do.call(rbind, lapply(models, \(f) {
 kable(res)
 ```
 
-
-
 # 4. Conclusion
-# 5. Appendix
-# 6. References
+# 5. References
