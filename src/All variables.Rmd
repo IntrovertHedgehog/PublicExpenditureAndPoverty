@@ -3,6 +3,10 @@ title: "Imtiyaaz"
 output: html_document
 date: "2022-11-03"
 ---
+Introduction : The project aim is to explore different models using the same dataset to evaluate which method will be the best to build a model for the dependent variable. The dataset we are using for this project has 1901 data values from 23 different variables. Our plan for this project is to first build a model with all the variables in the dataset. We will then follow it up by builidng a model without the missing values and build a ridge regression and Lasso regression model. Our second approach will be to selectively remove variables from the model and to build the best model  using regularisation and regression. Our next approach was to add the variables into the model one at a time to see if a different model can be achieved. Lastly, we performed imputation on our model to tackle the missing values present in our dataset.We then compared all of this approaches to come to a conclusion.
+
+
+
 ```{r}
 library(tidyverse) # for data manipulations and visualisations
 library(ggpubr) # for correlation coefficient on plot
@@ -279,4 +283,4 @@ knitr::kable(summary_3models[1:3,-5], digits = 3)
 knitr::kable(summary_3models[4:6,-5], digits = 3)
 
 ```
-From the 3 models we can see that the original multi linear regression model is the best one with the highest R^squared value. However the Lasso Regression Model has the lowest MSE, MAE and RMSE. We can conclude that the reason for the first model having the highest R^squared value might be due to overfitting. Next we will build other models to see if they work better.
+From the 3 models we can see that the original multi linear regression model is the best one with the highest R^squared value. However the Lasso Regression Model has the lowest MSE, MAE and RMSE. We can conclude that the reason for the first model having the highest R^squared value might be due to overfitting as many values will get removed. Next we will build other models to see if they work better.
