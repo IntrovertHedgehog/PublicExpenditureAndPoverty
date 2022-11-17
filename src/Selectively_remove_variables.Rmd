@@ -31,7 +31,11 @@ countries <- read.csv("../data/countries.csv")
 ```{r}
 head(countries)
 ```
-This approach takes variables that contain less than 35% of missing data.The previous analysis showed that the relations between the predicted variable and gdp.pc, gdp.dflt, and fdi are better fitted to logarithmic models. Hence, we transformed the data with the mutate() function before building the machine learning model.
+###  3.2.1. Model Fitting
+##### A. Ordinary Linear Regression
+Previous analysis showed that of all the variables in the countries.csv dataset, many of them had a high missing rate of above 35%, an arbitrary percentage that our group has chosen to filter the predictor variables. This section attempts to build a model on variables that have missing rates of below 35%.
+
+The previous analysis showed that the relations between the predicted variable and gdp.pc, gdp.dflt, and fdi are better fitted to logarithmic models. Hence, we transformed the data with the mutate() function before building the machine learning model.
 ```{r}
 
 subset0 <- subset(countries, select = c("country.code", "year","edu.total", "fdi","gcf","gdp.dflt","hlth","income","lbr.part","mil","pop.gwth.rural","pop.gwth.urban","pov","trade", "unemp", "year","gdp.pc" ))
@@ -108,6 +112,9 @@ Our first attempt
 lm_1 <- lm(data= train_1, formula = pov ~ .)
 summary(lm_1)
 ```
+
+The summary of `lm_1` suggests that the model still contains predictor variables with pr(>|t|) > 0.05. We can imply that these variables do not provide a high significance to our model and are thus able to be removed. To avoid removing significant variables, we shall conduct the removal of the variables deliberately. In `lm_1`, we notice that the variable `lgdp.dflt` has a high Pr(>|t|). Hence, we remove `lgdp.dflt`.
+
 ```{r}
 #remove hlth 
 lm_2 <- lm(data= train_1, formula = pov ~ .-lfdi - lgdp.dflt)
@@ -127,7 +134,7 @@ lm_4 <- lm(data= train_1, formula = pov ~ . -hlth - lgdp.dflt - lfdi)
 summary(lm_4)
 plot(lm_4, which = 5)
 ```
-Our model shows that among all the 13 predictor variables that we started with, only 10 of them showed significance in building the model. 
+Our model shows that among all the 13 predictor variables that we started with, only 11 of them showed significance in building the model. 
 
 We then evaluated the results of the model. 
 ```{r}
@@ -154,9 +161,14 @@ actual <- train_1$pov
 predicted <- predict(lm_4, newdata = train_1)
 eval.metrics.linreg(actual, predicted)
 ```
+The MAPE shows `Inf` due to the presence of 0 values in the Y variable. 
 
+##### c. Regularization
+Manual multiple regression models are prone to standard error. Hence, Ridge regression and LASSO regression are also used to build our model. 
+
+Next, we will perform Ridge regression and LASSO regression in a dataset that contains `country.code` and `year` in addition to the previous dataset that we used for the previous linear regression model. 
 ```{r}
-#subsetting df.countries to only contain variables present in lm_7
+#Subsetting the data
 
 data0 <- subset(subset1_0, select = c("country.code","year","edu.total", "lfdi","gcf","lgdp.dflt","hlth","income","lbr.part","mil","pop.gwth.rural","pop.gwth.urban","pov","trade", "unemp", "year","lgdp.pc"))
 data <- na.omit(data0)
@@ -165,18 +177,7 @@ train.y <- data.matrix(data$pov)
 
 ```
 
-```{r}
-#Find the ridge regression model
-# set.seed(123)
-# rate <- 0.8
-# train.size <- round(nrow(data)*rate)
-# sample(sample(nrow(data), train.size))
-# training <- data[sample, ]
-# test <- data[-sample, ]
-# 
-
-
-```
+Splitting the aforementioned dataset into training and testing data. 
 
 ```{r}
 split_train_test <- function(data) {
@@ -205,7 +206,7 @@ return(list(training, test))
 training <- split_train_test(data)[[1]]
 test <- split_train_test(data)[[2]]
 ```
-
+Further splitting the training and testing data into  `train.x` and `train.y`
 ```{r}
 ntrain <- 1:nrow(training)
 combine <- rbind(training, test)
@@ -220,7 +221,7 @@ test.x <- test.mtrx[,-1]
 text.y <- test$pov
 ```
 
-
+Building a model with the lambda that outputs the smallest MSE. 
 ```{r}
 cv_ridge <- cv.glmnet(train.x, train.y, alpha = 0)
 glm_ridge <- glmnet(train.x, train.y, alpha = 0, lambda = cv_ridge$lambda.min)
@@ -228,7 +229,7 @@ glm_ridge <- glmnet(train.x, train.y, alpha = 0, lambda = cv_ridge$lambda.min)
 
 t(coef(glm_ridge))
 ```
-
+The ridge regression model shows that some countries have a higher influence on the model than others. At first glance,it seems like the Y variable, `pov`, depends heavily on whether or not it belongs to certain countries.To further illustrate the significance of `country.code`, we will plot the ridge regression graph for different lambda values. 
 ```{r}
 #generate sequence of lambda values 
 lambda <- 10^seq(-6, 2, length = 100)
@@ -236,65 +237,17 @@ ridge_model = glmnet(train.x, train.y, alpha = 0, lambda = lambda)
 
 t(coef(ridge_model))
 ```
-
-```{r}
-plot(ridge_model, xvar = "lambda", label = TRUE)
-
-#customise the plot with labels
-add_lbs <- function(fit, offset_x = 2.5) {
-  L <- length(fit$lambda[L]) + offset_x
-  y <- fit$beta[,L]
-  labs <- names(y)
-  text(x, y , labels = labs, cex = 1.5)
-  
-  title(main = "Coefficients of Predictors vs Log(Lambda)",cex.main = 1.4, adj = 0, line = 3)
-  title(sub = "Number of Predictors", cex.sub = 1.1, adj = 0.55, line = -21.5)
-  add_lbs(ridge_model)
-  legend("topright", lwd = 1, col = 1:6, legend = colnames(train.x), cex = .7)
-
-}
-```
+Plotting the coefficients against different lambda values. 
 
 ```{r}
 plot_glmnet(ridge_model)
 ```
-```{r}
-#cross - validation
-set.seed(123)
-cv_ridge <- cv.glmnet(train.x, train.y, alpha = 0, type.measure = "mse")
 
-```
+Interesting! For a low lambda value, the model exhibits `cntr.MDG`, which represents Madagascar, followed by `cntr.ZMB`, which represents Zimbabwe,  as key predictor variables.
+This means that the model depends highly on whether the country is Madagascar or Zimbabwe, followed by some other significant countries. The other variables that previously defined the model is now undermined by the presence of the `country.code` variable and does not show high influence. 
 
-```{r}
-cv_ridge
-cv_ridge$lambda.min
-cv_ridge$lambda.1se
-```
+We then proceeded to evaluate the results 
 
-
-```{r}
-plot(cv_ridge)
-abline(v=log(cv_ridge$lambda.min), col = "red", lty=5)
-text(log(cv_ridge$lambda.min)+1, 1.4, 
-     labels= paste0("lambda_min = ", 
-                    round(cv_ridge$lambda.min, digits = 3)), 
-     cex = 1.1)
-
-# Label for lambda.1se
-abline(v=log(cv_ridge$lambda.1se), 
-       col = "red", lty=5)
-text(log(cv_ridge$lambda.1se)+1, 1.25, 
-     labels= paste0("lambda_1se = ", 
-                    round(cv_ridge$lambda.1se, digits = 3)), cex = 1.1)
-
-```
-
-```{r}
-#train the ridge regression model using lambda.min
-
-glm_Ridge <- glmnet(train.x, train.y, alpha = 0, lambda = cv_ridge$lambda.min)
-t(coef(glm_Ridge))
-```
 ```{r}
 eval_results <- function(fit, true) {
   actual <- data.matrix(true)
@@ -318,7 +271,9 @@ true <- train.y
 summary_Ridge_train <- eval_results(fit, true)
 summary_Ridge_train
 ```
+The training dataset produced a much higher value compared to the regular multiple regression model shown above. 
 
+Fitting the model to the test dataset,
 
 ```{r}
 fit <- predict(glm_Ridge, test.x)
@@ -326,36 +281,16 @@ true <- test.y
 summary_Ridge_test <- eval_results(fit, true)
 summary_Ridge_test
 ```
+A slightly lower R^2 value, but still proves that the model is good enough. 
 
+Below is the summary of the results of the training and testing dataset. 
 ```{r}
-summary_Ridge <- rbind(summary_Ridge_train[-5], summary_Ridge_test[-5])
+summary_Ridge <- rbind(summary_Ridge_train, summary_Ridge_test)
 rownames(summary_Ridge) <- c("Ridge_train", "Ridge_test")
 knitr::kable(summary_Ridge, digits = 3)
 
 ```
-
-```{r}
-#Obtain fitted and true values
-
-fit <- predict(glm_Ridge, train.x)
-true <- train.y
-
-```
-
-```{r}
-#Plot residuals s
-plot(fit, true - fit, 
-     main = "Residual Plot of Ridge Regression Model on the Training dataset",
-     xlab = "Fitted value",
-     ylab = "Standardised Residuals")
-abline(h = 0, col = "red", lwd = 2)
-abline(h = 1, col = "red", lty = 2, lwd = 2)
-abline(h = -1, col = "red", lty = 2, lwd = 2)
-
-```
-Constant varince assumption not satisfied. What to do? Most likely need to transform the variable
-TO TRANSFORM TO BOXCOX 
-
+Next, we attempted LASSO regression as well. The steps are essentially similar to that of Ridge regression. 
 ```{r}
 #Train a LASSO regression model
 set.seed(123)
@@ -374,12 +309,29 @@ plot(cv_lasso)
 glm_Lasso <- glmnet(train.x, train.y, alpha = 1, lambda = cv_lasso$lambda.min)
 t(coef(glm_Lasso))
 ```
+It is evident that the number of variables included in the model is less than that of ridge regression. This is in accordance with the nature of the LASSO regression model that reduces the coefficients of certain predictor variables to zero for model interpretability. 
+
+```{r}
+lambda <- 10^seq(-6, 2, length = 100)
+lasso_model = glmnet(train.x, train.y, alpha = 1, lambda = lambda)
+
+t(coef(lasso_model))
+```
+```{r}
+plot_glmnet(lasso_model)
+```
+```{r}
+plot_glmnet(ridge_model)
+```
 
 ```{r}
 fit2 <- predict(glm_Lasso, train.x)
 true2 <- train.y
 summary_Lasso_train <- eval_results(fit2, true2)
 summary_Lasso_train
+```
+```{r}
+plot_glmnet(lasso_model)
 ```
 
 ```{r}
@@ -388,4 +340,42 @@ true3 <- test.y
 summary_Lasso_test <- eval_results(fit3, true3)
 summary_Lasso_test
 ```
+```{r}
+summary_lasso <- rbind(summary_Lasso_train, summary_Lasso_test)
+rownames(summary_lasso) <- c("LASSO_train", "LASSO_test")
+knitr::kable(summary_lasso, digits = 3)
 
+```
+###  3.2.2. Assessment
+
+This section recapitulates the three models that we have generated so far through the method of gradually removing variables from the original dataset. 
+
+
+```{r}
+knitr::kable(summary_lasso, digits = 3)
+```
+
+```{r}
+knitr::kable(summary_Ridge, digits = 3)
+```
+```{r}
+summary(lm_4)
+```
+
+Our first model, `lm_4`, generated with regular multiple linear regression exhibits the lowest R^2 value. The model shows that `incomeL` is the most significant predictor variable with the highest coefficient. One interesting observation is that `incomeLM` and `incomeUM` has a negative correlation with the pov level, in contrast to `incomeL`. This shows that countries that have lower income tend to have high `pov` value. On the other hand, countries that are classified to have lower middle income and upper middle income seem to have lower `pov` values, as shown by their negative coefficients in the regression model.
+
+Apart from income, some other variables that contribute more significantly to the model are `lgdp.pc`, with a coefficient of -3.13114, exhibiting a stronger negative correlation, and `pop.gwth.urban`, exhibiting a stronger positive correlation with a coefficient of 1.90680. This is counter-intuitive, as the notion is that population growth in cities will help drive positive economic change due to the number of productive people living in the city. 
+The model also shows that `pop.gwth.rural` gives a less significant impact on `pov` as compared to  `pop.gwth.rural`. 
+
+Both the Ridge regression and LASSO regression models exhibit similar result metrics (MSE, MAE, MAPE, R^2). This result is expected. 
+
+```{r}
+plot_glmnet(lasso_model)
+```
+
+```{r}
+plot_glmnet(ridge_model)
+```
+###  3.2.3. Interpretation
+
+The comparison between the three models suggests that `country.code` affects the models generated in a significant way. 
