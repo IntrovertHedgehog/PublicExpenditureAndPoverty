@@ -215,7 +215,7 @@ train.x <- train.mtrx[,-1]
 train.y <- training$pov
 
 test.x <- test.mtrx[,-1]
-text.y <- test$pov
+test.y <- test$pov
 ```
 
 Building a model with the lambda that outputs the smallest MSE. 
@@ -232,7 +232,7 @@ The ridge regression model shows that some countries have a higher influence on 
 lambda <- 10^seq(-6, 2, length = 100)
 ridge_model = glmnet(train.x, train.y, alpha = 0, lambda = lambda)
 
-t(coef(ridge_model))
+head(t(coef(ridge_model)))
 ```
 Plotting the coefficients against different lambda values. 
 
@@ -263,7 +263,7 @@ eval_results <- function(fit, true) {
 ```
 
 ```{r}
-fit <- predict(glm_Ridge, train.x)
+fit <- predict(glm_ridge, train.x)
 true <- train.y
 summary_Ridge_train <- eval_results(fit, true)
 summary_Ridge_train
@@ -273,7 +273,7 @@ The training dataset produced a much higher value compared to the regular multip
 Fitting the model to the test dataset,
 
 ```{r}
-fit <- predict(glm_Ridge, test.x)
+fit <- predict(glm_ridge, test.x)
 true <- test.y
 summary_Ridge_test <- eval_results(fit, true)
 summary_Ridge_test

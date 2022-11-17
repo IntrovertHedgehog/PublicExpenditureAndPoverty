@@ -1,6 +1,6 @@
 ---
 title: "Draft Documents"
-author: "Team 1 (Hedgehog, Callista, Imtiyaaz, Issac)"
+author: "Team 1: Le Van Minh, Callista Stephine Yu, Muhammad Imtiyaaz B M A M , Thum Jun Long Issac"
 date: "`r Sys.Date()`"
 output:
   pdf_document: default
@@ -22,8 +22,15 @@ inline_hook <- function(x) {
 }
 knit_hooks$set(inline = inline_hook)
 # code chunk out put to 
-options(digits = 5)
+options(digits = 3)
 ```
+
+# 1. Introduction
+The project aim is to explore different models using the same dataset to evaluate which method will be the best to build a model for the dependent variable. The dataset we are using for this project has 1901 data values from 23 different variables. Our plan for this project is to first build a model with all the variables in the dataset. We will then follow it up by builidng a model without the missing values and build a ridge regression and Lasso regression model. Our second approach will be to selectively remove variables from the model and to build the best model  using regularisation and regression. Our next approach was to add the variables into the model one at a time to see if a different model can be achieved. Lastly, we performed imputation on our model to tackle the missing values present in our dataset.We then compared all of this approaches to come to a conclusion.
+
+Github repo: [https://github.com/IntrovertHedgehog/PublicExpenditureAndPoverty](https://github.com/IntrovertHedgehog/PublicExpenditureAndPoverty)
+
+# 2. Data Characteristic
 
 ```{r, message = F}
 library(needs)
@@ -32,11 +39,6 @@ needs("dplyr", "MASS", "readr", "tidyr", "ggplot2", "e1071", "moments", "corrplo
 
 prioritize(dplyr)
 ```
-
-# 1. Introduction (To be done)
-The project aim is to explore different models using the same dataset to evaluate which method will be the best to build a model for the dependent variable. The dataset we are using for this project has 1901 data values from 23 different variables. Our plan for this project is to first build a model with all the variables in the dataset. We will then follow it up by builidng a model without the missing values and build a ridge regression and Lasso regression model. Our second approach will be to selectively remove variables from the model and to build the best model  using regularisation and regression. Our next approach was to add the variables into the model one at a time to see if a different model can be achieved. Lastly, we performed imputation on our model to tackle the missing values present in our dataset.We then compared all of this approaches to come to a conclusion.
-
-# 2. Data Characteristic
 
 ## 2.1. Nature of Data
 
@@ -68,7 +70,7 @@ The data set is collection The World Bank Data, the variables of interest are ex
 20. **gdp.dflt**: GDP deflator\
 21. **gdr.eql**: Gender equality rating\
 22. **gcf**: Gross Capital Formation\
-23. **trade**: Trade = import + export (% of GDP)
+23. **trade**: Trade = import + export (% of GDP)\
 24. **gdp.pc**: GDP per capita (current US$)
 
 Data imports and combining:
@@ -391,10 +393,10 @@ Countries from North America, Sub-Saharan Africa, and South Asia have the highes
 
 Still, we need to find a way to address this issue. we propose several approaches:
 
-1.  **Use complete cases**: Only use the complete cases for the analysis. This is a straightforward approach, but doesn't resolve the bias resulted from the mass loss of data.
-2.  **Selectively remove variables with high missing rate**: The same as we did before, but this process should be carried out carefully as we run the chance of dropping an important variable.
-3.  **Update the data set as we select variables**: As we drop insignificant variables (in backward selection), the number of NAs are changed as well. We can utilize the extra complete cases to build the next model in the steps.
-4.  **Imputation**: The idea is to replace the missing observations on the response or the predictors with artificial values that try to preserve the data set structure. This is a quite complex topic of its own, but we think why not. You can read more from @imputation.
+1.  **Use complete cases**: Only use the complete cases for the analysis. This is a straightforward approach, but doesn't resolve the bias resulted from the massive loss of data.
+2.  **Selectively remove variables with high missing rate**: Start with all the variable in the data set, then step-by-step remove insignificant, or frequently missing variables to use as much data as possible.
+3.  **Forward variable selection**: Start with 0 variable, then selectively add potentially important variable to the data set to achieve optimal model.
+4.  **Imputation**: The idea is to replace the missing observations on the response or the predictors with artificial values that try to preserve the data set structure. This is a quite complex topic of its own. You can read more from @imputation.
 
 ## 2.3. Descriptive Analytics
 Distribution of the predicted variable `pov`
@@ -650,20 +652,9 @@ Some significant correlations can be found between `gdr.eql` with `edu.pri`, `po
 
 We can now conduct linear regressions following the approaches mentioned above to address missing values issues.
 
-## 3.1. Use Complete Cases (Imtiyaaz)
+## 3.1. Use Complete Cases
 ```{r}
-library(tidyverse) # for data manipulations and visualisations
-library(ggpubr) # for correlation coefficient on plot
-library(gridExtra) # for arranging plots 
-library(e1071) # for skewness
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(readxl)
-library(corrplot)
-library(car)
-library(DescTools)
-library(glmnet)
+needs("tidyverse","ggpubr","gridExtra","e1071","ggplot2","dplyr","tidyr","readxl","corrplot","car","DescTools","glmnet")
 ```
 
 First we will write the function "eval_results(true,predict) to evaluate the models
@@ -684,9 +675,9 @@ eval_results <- function(true, predict) {
 First we read the csv file for the countries containing the dataset. We will then put the variables we need in to subset1.
 ```{r}
 df <-read.csv('../data/countries1.csv')
-df
+head(df)
 subset1 <- df %>% select("pov","country.code","year","income","edu.total","hlth","mil","fdi","lbr.part","unemp","pop.gwth.total","pop.gwth.rural","gdp.dflt","gcf","trade","gdp.pc","lfdi","lgdp.dflt","lgdp.pc")
-subset1
+head(subset1)
 ```
 
 
@@ -746,10 +737,8 @@ Next we will perform standardistation to the dataset.
 ```{r}
 str(subset1)
 df0 <- subset1
-subset1
+head(subset1)
 apply(subset1, 2, sd)
-
-
 ```
 
 Next we will plot a pov vs income scatter plot to see the effect of income on pov. From the scatter plot, we can deduce that the low income countries have a higher pov while the higher income countries have low pov. This is consistent with our intuition that countries that are richer do not have as much poverty issue as the poorer countries.
@@ -768,13 +757,12 @@ Next we will build a MLR model with data from subset 1 to see the relationship b
 model1 <- lm(pov ~ ., data = subset1)
 summary(model1)
 vif(model1)
-
 ```
 Next we will perform regularisation. We will split the data to predictor variable "train.x" and response variables "train.y"
 ```{r}
 subset2 <- subset(subset1,select =c("pov","country.code","year","income","edu.total","hlth","mil","fdi","lbr.part","unemp","pop.gwth.total","pop.gwth.rural","gdp.dflt","gcf","trade","gdp.pc","lfdi","lgdp.dflt","lgdp.pc"))
 subset2 <- na.omit(subset2)
-subset2
+head(subset2)
 train.x <- data.matrix(subset(subset2, select = -pov))
 train.y = data.matrix(subset2$pov)
 ```
@@ -815,7 +803,7 @@ train.x <- train.mtrx[,-1]
 train.y <- training$pov
 
 test.x <- test.mtrx[,-1]
-text.y <- test$pov
+test.y <- test$pov
 ```
 
 We then build a MLR model with the training model to train it.
@@ -823,7 +811,6 @@ We then build a MLR model with the training model to train it.
 ```{r}
 model3 <- lm(pov ~., data = training)
 summary(model3)
-
 ```
 
 ```{r}
@@ -925,11 +912,10 @@ rownames(summary_3models) <- c("Baseline MLR_Train", "Ridge Model_Train",
 
 knitr::kable(summary_3models[1:3,-5], digits = 3)
 knitr::kable(summary_3models[4:6,-5], digits = 3)
-
 ```
 From the 3 models we can see that the original multi linear regression model is the best one with the highest R^squared value. However the Lasso Regression Model has the lowest MSE, MAE and RMSE. We can conclude that the reason for the first model having the highest R^squared value might be due to overfitting as many values will get removed. Next we will build other models to see if they work better.
 
-## 3.2. Selectively remove variables with high missing rate (Callista)
+## 3.2. Selectively remove variables with high missing rate
 
 ```{r}
 needs("knitr","readr","tidyr","dplyr","ggplot2","stats","tidyverse","e1071","car","glmnet","corrplot","plotmo")
@@ -940,16 +926,14 @@ countries <- read.csv("../data/countries.csv")
 ```
 
 ###  3.2.1. Model Fitting
-##### A. Ordinary Linear Regression
+#### A. Ordinary Linear Regression
 Previous analysis showed that of all the variables in the countries.csv dataset, many of them had a high missing rate of above 35%, an arbitrary percentage that our group has chosen to filter the predictor variables. This section attempts to build a model on variables that have missing rates of below 35%.
 
 The previous analysis showed that the relations between the predicted variable and gdp.pc, gdp.dflt, and fdi are better fitted to logarithmic models. Hence, we transformed the data with the mutate() function before building the machine learning model.
 ```{r}
-
 subset0 <- subset(countries, select = c("country.code", "year","edu.total", "fdi","gcf","gdp.dflt","hlth","income","lbr.part","mil","pop.gwth.rural","pop.gwth.urban","pov","trade", "unemp", "year","gdp.pc" ))
 
 subset1_0 <- subset0 %>% mutate(lfdi = log(subset0$fdi)) %>% mutate(lgdp.pc = log(subset0$gdp.pc)) %>% mutate(lgdp.dflt = log(subset0$gdp.dflt))
-
 ```
 subset1 contains the variables below 35% of missing values. 
 ```{r}
@@ -986,22 +970,20 @@ standardise <- function(data) {
   numCols <- which(unlist(lapply(data, is.numeric)))
   num <- as.data.frame(mapply(std0, vct = data[,numCols], scl = scaler[numCols], SIMPLIFY = T))
   fct <- data[,-numCols]
-  return(cbind(fct, num))
+  return(list(cbind(fct, num), scaler))
 }
 
 
 ```
 
 ```{r}
-
-df.countries0 <- standardise(subset1)
+df.countries0 <- standardise(subset1)[[1]]
+scaler2 <- standardise(subset1)[[2]]
 df.countries <- df.countries0
 ```
 
 ```{r}
 #Divide each feature/target by its standard deviation
-
-
 head(df.countries)
 ```
 
@@ -1011,7 +993,6 @@ set.seed(123)
 index <- sort(sample(x = nrow(df.countries), size = nrow(df.countries) * 0.8))
 train_1 <- subset1[index,]
 test_1 <- subset1[-index,]
-
 ```
 
 Our first attempt 
@@ -1036,6 +1017,7 @@ lm_3 <- lm(data= train_1, formula = pov ~ . -lgdp.dflt)
 summary(lm_3)
 plot(lm_3, which = 5)
 ```
+
 ```{r}
 #remove lfdi
 lm_4 <- lm(data= train_1, formula = pov ~ . -hlth - lgdp.dflt - lfdi)
@@ -1071,7 +1053,7 @@ eval.metrics.linreg(actual, predicted)
 ```
 The MAPE shows `Inf` due to the presence of 0 values in the Y variable. 
 
-##### B. Regularization
+#### B. Regularization
 Manual multiple regression models are prone to standard error. Hence, Ridge regression and LASSO regression are also used to build our model. 
 
 Next, we will perform Ridge regression and LASSO regression in a dataset that contains `country.code` and `year` in addition to the previous dataset that we used for the previous linear regression model. 
@@ -1082,31 +1064,30 @@ data0 <- subset(subset1_0, select = c("country.code","year","edu.total", "lfdi",
 data <- na.omit(data0)
 train.x <- data.matrix(subset(data, select = -pov))
 train.y <- data.matrix(data$pov)
-
 ```
 
 Splitting the aforementioned dataset into training and testing data. 
 
 ```{r}
 split_train_test <- function(data) {
-set.seed(1984)
-# split data
-seeds <- data %>% 
-  group_by(country.code) %>% 
-  filter(row_number() == 1)
-
-plants <- data %>% 
-  group_by(country.code) %>% 
-  filter(row_number() != 1)
-
-isComplete <- which(complete.cases(plants))
-idx <- sample(isComplete, replace = F, 0.2 * nrow(plants))
-
-training <- plants[-idx,] %>% 
-  rbind(seeds)
-test <- plants[idx,]
-
-return(list(training, test))
+  set.seed(1984)
+  # split data
+  seeds <- data %>% 
+    group_by(country.code) %>% 
+    filter(row_number() == 1)
+  
+  plants <- data %>% 
+    group_by(country.code) %>% 
+    filter(row_number() != 1)
+  
+  isComplete <- which(complete.cases(plants))
+  idx <- sample(isComplete, replace = F, 0.2 * nrow(plants))
+  
+  training <- plants[-idx,] %>% 
+    rbind(seeds)
+  test <- plants[idx,]
+  
+  return(list(training, test))
 }
 ```
 
@@ -1126,14 +1107,13 @@ train.x <- train.mtrx[,-1]
 train.y <- training$pov
 
 test.x <- test.mtrx[,-1]
-text.y <- test$pov
+test.y <- test$pov
 ```
 
 Building a model with the lambda that outputs the smallest MSE. 
 ```{r}
 cv_ridge <- cv.glmnet(train.x, train.y, alpha = 0)
 glm_Ridge <- glmnet(train.x, train.y, alpha = 0, lambda = cv_ridge$lambda.min)
-
 
 t(coef(glm_Ridge))
 ```
@@ -1143,7 +1123,7 @@ The ridge regression model shows that some countries have a higher influence on 
 lambda <- 10^seq(-6, 2, length = 100)
 ridge_model = glmnet(train.x, train.y, alpha = 0, lambda = lambda)
 
-t(coef(ridge_model))
+head(t(coef(ridge_model)))
 ```
 Plotting the coefficients against different lambda values. 
 
@@ -1168,7 +1148,6 @@ eval_results <- function(fit, true) {
     RMSE = RMSE(fit, true),
     MAPE = MAPE(fit, true),
     R2  = R_square
-    
   )
 }
 ```
@@ -1196,7 +1175,6 @@ Below is the summary of the results of the training and testing dataset.
 summary_Ridge <- rbind(summary_Ridge_train, summary_Ridge_test)
 rownames(summary_Ridge) <- c("Ridge_train", "Ridge_test")
 knitr::kable(summary_Ridge, digits = 3)
-
 ```
 Next, we attempted LASSO regression as well. The steps are essentially similar to that of Ridge regression. 
 ```{r}
@@ -1281,9 +1259,6 @@ The MSE for the LASSO regression model is slightly higher than that of the Ridge
 ```{r}
 plot_glmnet(lasso_model)
 ```
-```{r}
-
-```
 
 ```{r}
 plot_glmnet(ridge_model)
@@ -1294,7 +1269,7 @@ plot(lm_4, which = 5)
 The `Residual vs Leverage` plot of `lm_4` suggests that heteroskedasticity might be present in the model. This means that the variance of the residuals is unequal over a range of observed values. This problem exists in the dataset rather than the models generated.
 
 
-## 3.3. Update the data set as we select variables (Isaac)
+## 3.3. Forward variable selection
 ###  3.3.1. Model Fitting 
 ```{r}
 df_count<-read.csv("../data/countries1.csv")
@@ -1394,6 +1369,9 @@ countries.train.4 <- plants[-idx,] %>%
   rbind(seeds)
 countries.test.4 <- plants[idx,]
 
+meth <- c(rep("",4), "cart", "", rep("cart", 16))
+names(meth) <- colnames(countries1)
+meth
 
 # run the algorithm, or read from the file we generated as this is a very time-consuming process
 # countries1.imputed <- mice(countries.train.4, m = 3, maxit = 20, method = meth)
@@ -1409,7 +1387,7 @@ sum(!complete.cases(countries1.imputed.1))
 ```
 We found no missing cases as expected.
 
-###  3.4.1. Model Fitting
+### 3.4.1. Model Fitting
 #### A. Ordinary Linear Regression
 We generated 3 sets of imputed (training) data. We can build separate models using each data set, and combine the estimates using [pooling rule](https://amices.org/mice/reference/pool.html#details). With all the generated data sets.
 
@@ -1458,8 +1436,8 @@ fit1.summ <- lapply(fit1, \(f) {
     `Test MSE` = mean(test.resid^2),
     `Train MAE` = mean(abs(summary(f)$residuals)),
     `Test MAE` = mean(abs(test.resid)),
-    `Train Adj.R2` = summary(f)$adj.r.squared,
-    `Test Adj.R2` = adjR2(pred, countries.test.4$pov, k)
+    `Train R2` = summary(f)$r.squared,
+    `Test R2` = r2(pred, countries.test.4$pov)
   )
 })
 
@@ -1473,8 +1451,8 @@ fit2.summ <- data.frame(
   `Test MSE` = mean(test.resid^2),
   `Train MAE` = mean(abs(summary(fit2.dummy)$residuals)),
   `Test MAE` = mean(abs(test.resid)),
-  `Train Adj.R2` = pool.r.squared(fit2, adjusted = T)[,'est'],
-  `Test Adj.R2` = adjR2(fit2.pred, countries.test.4$pov, k)
+  `Train R2` = pool.r.squared(fit2)[,'est'],
+  `Test R2` = r2(fit2.pred, countries.test.4$pov)
 )
 
 res <- do.call(rbind.data.frame, fit1.summ)
@@ -1542,7 +1520,7 @@ lapply(gvif, \(g) {
 })
 ```
 
-There're still some variable with adjusted GVIF > 2. We are interested in the effects of `hlth` (expenditure in Healthcare), and `mil` (expenditure in Military), so we won't remove those variables. We can remove `trade`.
+There're still some variable with adjusted GVIF > 2. We are interested in the effects of `hlth` (expenditure in Healthcare), so we won't remove those variables. We can remove `trade`.
 
 ```{r}
 # remove trade
@@ -1578,8 +1556,8 @@ fit1.summ <- lapply(fit1, \(f) {
   k <- length(f$coefficients) - 1
   pred <- predict(f, countries.test.4)
   data.frame(
-    `Train Adj.R2` = summary(f)$adj.r.squared,
-    `Test Adj.R2` = adjR2(pred, countries.test.4$pov, k)
+    `Train Adj.R2` = summary(f)$r.squared,
+    `Test Adj.R2` = r2(pred, countries.test.4$pov)
   )
 })
 
@@ -1628,12 +1606,12 @@ aic.pred <- lapply(aic.fits, predict, newdata = countries.test.4)
 aic.train.r2 <- unlist(lapply(aic.fits, \(model) summary(model)$adj.r.squared))
 
 k <- lapply(aic.fits, \(m) length(m$coefficients))
-aic.test.r2 <- unlist(mapply(adjR2, aic.pred, k = k, MoreArgs = list(orig = countries.test.4$pov)))
+aic.test.r2 <- unlist(mapply(r2, aic.pred, MoreArgs = list(orig = countries.test.4$pov)))
 
 res <- data.frame(`set no.` = 1:3, train = aic.train.r2, test = aic.test.r2)
 ```
 
-We can compare Adjusted R-Squared to estimate relative over-fitting in the new models.
+We can compare R-Squared to estimate relative over-fitting in the new models.
 
 ```{r}
 kable(res)
@@ -1663,8 +1641,8 @@ fit3.summ <- lapply(fit3, \(f) {
     `Test MSE` = mean(test.resid^2),
     `Train MAE` = mean(abs(summary(f)$residuals)),
     `Test MAE` = mean(abs(test.resid)),
-    `Train Adj.R2` = summary(f)$adj.r.squared,
-    `Test Adj.R2` = adjR2(pred, countries.test.4$pov, k)
+    `Train R2` = summary(f)$r.squared,
+    `Test R2` = r2(pred, countries.test.4$pov)
   )
 })
 
@@ -1676,8 +1654,8 @@ fit4.summ <- data.frame(
   `Test MSE` = mean(test.resid^2),
   `Train MAE` = mean(abs(summary(fit4.dummy)$residuals)),
   `Test MAE` = mean(abs(test.resid)),
-  `Train Adj.R2` = pool.r.squared(fit4, adjusted = T)[,'est'],
-  `Test Adj.R2` = adjR2(fit4.pred, countries.test.4$pov, k)
+  `Train R2` = pool.r.squared(fit4)[,'est'],
+  `Test R2` = r2(fit4.pred, countries.test.4$pov)
 )
 
 res <- do.call(rbind.data.frame, fit3.summ)
@@ -1849,9 +1827,7 @@ result.list <- lapply(models, \(mod) {
     `Train MAE` = mod$train$mae,
     `Test MAE` = mod$test$mae,
     `Train R2` = mod$train$r2,
-    `Test R2` = mod$test$r2,
-    `Train Adj.R2` = mod$train$adj.r2,
-    `Test Adj.R2` = mod$test$adj.r2
+    `Test R2` = mod$test$r2
   )
 })
 
@@ -1946,10 +1922,10 @@ for (mod in fit3) {
 }
 ```
 
-Some obvious outliers are point 1122, 1327, 1395, 1396, 1424, 1474.
+Some obvious outliers are point 1112, 1329, 1395, 1396, 1424, 147, 1486, 1508.
 
 ```{r}
-out <- c(1122, 1327, 1395, 1396, 1424, 1474)
+out <- c(1112, 1329, 1395, 1396, 1424, 147, 1486, 1508)
 var <- c("country.code","country.name","year","pov","income","edu.total","hlth","mil","lbr.part","gcf","lfdi")
 # See the original data instead of imputed data
 countries.train.4[out,var]
@@ -1996,4 +1972,61 @@ kable(res)
 ```
 
 # 4. Conclusion
+
+Approach 1, 2 and 4 seem to have the best performace.
+
+First Approach:
+```{r}
+knitr::kable(summary_3models[1:3,-5], digits = 3)
+knitr::kable(summary_3models[4:6,-5], digits = 3)
+```
+
+Second Approach:
+
+```{r}
+knitr::kable(summary_lasso, digits = 3)
+knitr::kable(summary_Ridge, digits = 3)
+```
+
+Fourth Approach:
+```{r}
+kable(result.df[c('alpha', 'lambda', 'Train.R2', 'Test.R2')])
+```
+
+We can deduce our final interpretation from these models.
+
+```{r}
+var <- c('incomeL', 'incomeLM', 'incomeUM', 'edu.total', 'hlth', 'mil')
+result1 <- coefficients(model3)[var]
+# result1[names(scaler2)] <- result1[names(scaler2)] / scaler2[names(scaler2)]
+# result1 <- result1 * scaler2['pov']
+# result1 <- result1[var]
+
+result2 <- coefficients(glm_Ridge)[,'s0']
+result2[names(scaler2)] <- result2[names(scaler2)] / scaler2[names(scaler2)]
+result2 <- result2 * scaler2['pov']
+result2 <- result2[var]
+
+result4 <- res[2,var]
+
+# combine
+finalResults <- data.frame(Approach = c(1,2,4))
+finalResults <- finalResults %>% 
+  cbind(rbind(result1, result2, result4))
+
+kable(finalResults)
+```
+
+Some important interpretation:
+
+- Low income countries generally have higher poverty index than High income countries.
+- As suggested by 1st approach, Lower-Middle income countries have higher poverty index than High income countries. While 2nd and 4th approach suggest otherwise.
+- Upper-Middle income countries in general have lower poverty index than High income countries.
+
+As suggested by these models. Upper-Middle income countries have lowest poverty rate. This can be attributed to that these countries tend to have more even wealth distribution than high income countries, and have enough money to alleviate poor people.
+
+- Spending on education is negatively correlated with poverty. On average, 1% (of GDP) more spending in education results in 3 point decrease in poverty index. This suggests that public spending on education can reduce poverty.
+- Spending on Healthcare is negatively correlated with poverty. On average, 1% (of GDP) more spending in education results in 0.5 point decrease in poverty index.
+- Spending on military has ambiguous effect on poverty. Different model results in different interpretation. This can be accounted to the difference in the data used in each approach. Approach 1 only use complete cases, which caused the model to predict positive relationship. However, as more data is utilised in approach 2&4 use more data, the effect tend to be neutral/negative.
+
 # 5. References

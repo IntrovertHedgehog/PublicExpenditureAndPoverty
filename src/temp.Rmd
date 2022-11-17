@@ -1,0 +1,659 @@
+---
+title: "Temp"
+author: "Team 1 (Hedgehog, Callista, Imtiyaaz, Issac)"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+###  3.3.3. Interpretation
+gdp per capital, income class and region of the country can provide a model to predict the poverty headcount ratio in a country. The error rate of the model is high on the testing data set, showing it may not be a good model.
+
+## 3.4. Imputation
+**What is imputation?**  
+Imputation is a technique to handle missing values by replacing missing data with substitute values. In our study, we focus on "item imputation", which means substituting for a component of a data point (i.e. a variable). The general idea is to take a value that preserve the property of the data (e.g., distribution, mean, standard deviation), and use other variables to predict the missing values (much like regression). Since we observed some correlations during descriptive analysis, we expect the imputation algorithm to work well.
+
+We use **Multivariate Imputation By Chained Equations (MICE)** as primary tool for this technique, because of its wide acceptance in scientific studies (@imputWorks). In order to use this technique, we have to assume that the "missingness" of a field can be explained by the values in other columns, (e.g., If the countries is in North America, it's more likely to be missing as we have discovered in 2.2). The general ideas of the algorithm is to fill in the missing values, and improve it iteratively until predicted values converse to a stable point. The algorithmic details of MICE is very concisely (and enthrallingly) explained in @micealgo.  
+
+We use relatively small parameters in the interest of time.
+
+- `m = 3` imputed data sets
+- `maxit = 20` iterations
+
+The imputation method is `cart` (Classification and Regression Trees).
+
+```{r}
+library(needs)
+
+needs("dplyr", "MASS", "readr", "tidyr","tibble", "ggplot2", "e1071", "moments", "corrplot", "Hmisc", "PerformanceAnalytics", "mice", "car", "glmnet", "ggforce", "lmtest")
+
+countries1 <- read.csv("../data/countries1.csv") %>% 
+  select(-1) %>% 
+  mutate(country.code = factor(country.code),
+         country.name = factor(country.name),
+         reg = factor(reg),
+         income = factor(income)) %>% 
+  as_tibble()
+
+set.seed(1984)
+# split data, make sure all the coutries
+seeds <- countries1 %>% 
+  group_by(country.code) %>% 
+  filter(row_number() == 1)
+
+plants <- countries1 %>% 
+  group_by(country.code) %>% 
+  filter(row_number() != 1)
+
+isComplete <- which(complete.cases(plants))
+idx <- sample(isComplete, replace = F, 0.3 * nrow(plants))
+
+countries.train.4 <- plants[-idx,] %>% 
+  rbind(seeds)
+countries.test.4 <- plants[idx,]
+
+meth <- c(rep("",4), "cart", "", rep("cart", 16))
+names(meth) <- colnames(countries1)
+meth
+
+# run the algorithm, or read from the file we generated as this is a very time-consuming process
+countries1.imputed <- mice(countries.train.4, m = 3, maxit = 20, method = meth)
+# saveRDS(countries1.imputed, 'countries1.imputed.RData')
+countries1.imputed <- readRDS('countries1.imputed.RData')
+summary(countries1.imputed)
+```
+We can take a look into one of the imputed data sets.
+```{r}
+countries1.imputed.1 <- complete(countries1.imputed, 1)
+summary(countries1.imputed.1)
+sum(!complete.cases(countries1.imputed.1))
+```
+We found no missing cases as expected.
+
+### 3.4.1. Model Fitting
+#### A. Ordinary Linear Regression
+We generated 3 sets of imputed (training) data. We can build separate models using each data set, and combine the estimates using [pooling rule](https://amices.org/mice/reference/pool.html#details). With all the generated data sets.
+
+```{r}
+formula.str <- 'pov ~ country.code+year+income+edu.total+hlth+mil+fdi+lbr.part+unemp+pop.gwth.total+pop.gwth.rural+pop.gwth.urban+gdp.dflt+gcf+trade+gdp.pc+lfdi+lgdp.dflt+lgdp.pc'
+
+# Using single imputed data set
+fit1 <- lapply(1:countries1.imputed$m, \(i) lm(as.formula(formula.str), data = complete(countries1.imputed, i)))
+
+# Build models with all generated data set and pool the estimates
+fit2 <- with(data = countries1.imputed, exp = lm(as.formula(formula.str)))
+fit2.combined <- pool(fit2)
+# dummy lm model
+fit2.dummy <- lm(as.formula(formula.str), data = complete(countries1.imputed, 1))
+# replace coefficients of dummy model
+name.coef <- names(fit2.dummy$coefficients)
+fit2.dummy$coefficients <- fit2.combined$pooled$estimate
+names(fit2.dummy$coefficients) <- name.coef
+```
+Helper function to calculate R-Squared
+```{r}
+r2 <- function(pred, orig) {
+   RSS <- sum((pred - orig)^2)
+   TSS <- sum((orig - mean(orig))^2)
+   R2 <- 1 - RSS/TSS
+   return (R2)
+}
+
+adjR2 <- function(pred, orig, k) {
+  R2 <- r2(pred, orig)
+  n <- length(pred)
+  adjr2 <- 1 - (1-R2)*(n-1)/(n-k-1)
+  return (adjr2)
+}
+```
+Adjusted R-Squared on train and test
+```{r}
+fit1.summ <- lapply(fit1, \(f) {
+  # number of variables
+  k <- length(f$coefficients) - 1
+  # predict value of test
+  pred <- predict(f, countries.test.4)
+  test.resid <- pred - countries.test.4$pov
+  data.frame(
+    `Train MSE` = mean(summary(f)$residuals^2),
+    `Test MSE` = mean(test.resid^2),
+    `Train MAE` = mean(abs(summary(f)$residuals)),
+    `Test MAE` = mean(abs(test.resid)),
+    `Train Adj.R2` = summary(f)$adj.r.squared,
+    `Test Adj.R2` = adjR2(pred, countries.test.4$pov, k)
+  )
+})
+
+# number of variables
+k <- length(fit2.dummy$coefficients) - 1
+# number of variables
+fit2.pred <- predict(fit2.dummy, countries.test.4)
+test.resid <- fit2.pred - countries.test.4$pov
+fit2.summ <- data.frame(
+  `Train MSE` = mean(summary(fit2.dummy)$residuals^2),
+  `Test MSE` = mean(test.resid^2),
+  `Train MAE` = mean(abs(summary(fit2.dummy)$residuals)),
+  `Test MAE` = mean(abs(test.resid)),
+  `Train Adj.R2` = pool.r.squared(fit2, adjusted = T)[,'est'],
+  `Test Adj.R2` = adjR2(fit2.pred, countries.test.4$pov, k)
+)
+
+res <- do.call(rbind.data.frame, fit1.summ)
+res <- rbind(res, fit2.summ)
+res <- cbind(data.frame(Set = c(1:3, "Pooled")), res)
+
+kable(res)
+```
+
+Pooled model slightly improve performance. Test data fitting has better MSE and MAE than train data. However, Adjusted R-Squared is lower in test data. There might be some over-fitting in our models.
+
+```{r}
+# find coef of variable other than country.code
+var <- c("year","incomeL","incomeLM","incomeUM","edu.total","hlth","mil","fdi","lbr.part","unemp","pop.gwth.total","pop.gwth.rural","pop.gwth.urban","gdp.dflt","gcf","trade","gdp.pc","lfdi","lgdp.dflt","lgdp.pc")
+
+res <- do.call(rbind, lapply(fit1, \(f) f$coefficients[var]))
+res <- rbind(res, fit2.dummy$coefficients[var])
+res <- cbind(data.frame(Set = c(1:3, "Pooled")), res)
+kable(res)
+```
+
+In contradiction to expectation, `hlth` is positively correlated with `pov`, and lower-middle income countries (incomeLM) are less poor than high income countries (incomeH). `pop.gwth.total` is negatively related to `pov`, while `pop.gwth.rural` and `pop.gwth.urban` are positively related. They might be indications of over-fitting model.
+
+```{r}
+# fit model on imputed set no. 1
+summary(fit1[[1]])
+```
+
+There are also some weak variable, we should perform some variable selection.
+
+#### B. VIF
+
+Our data set contains a lots of variables. We can perform some variable selection to reduce over-fitting.
+
+```{r}
+gvif <- lapply(fit1, vif)
+gvif
+```
+
+[Some forum](https://stats.stackexchange.com/questions/70679/which-variance-inflation-factor-should-i-be-using-textgvif-or-textgvif) suggested that we should use the standard $GVIF^{1/(2 \cdot df)} < 2$ as equivalent to $GVIF < 4$ to account for high degree of freedom of some variables.
+
+```{r}
+# adjusted gvif higher than 3
+lapply(gvif, \(g) {
+  g[g[,3] > 3, 3]
+})
+```
+
+Remove the highest-ranked variables (`pop.gwth.total`, `pop.gwth.urban`, `pop.gwth.rural`, `gdp.pc`, `lgdp.pc`) and rebuild the models.
+
+```{r}
+formula.str <- 'pov ~ country.code+year+income+edu.total+hlth+mil+fdi+lbr.part+unemp+gdp.dflt+gcf+trade+lfdi+lgdp.dflt'
+
+# Using single imputed data set
+fit1 <- lapply(1:countries1.imputed$m, \(i) lm(as.formula(formula.str), data = complete(countries1.imputed, i)))
+```
+
+Re-run GVIF analysis
+
+```{r}
+gvif <- lapply(fit1, vif)
+
+lapply(gvif, \(g) {
+  g[g[,3] > 2, 3]
+})
+```
+
+There're still some variable with adjusted GVIF > 2. We are interested in the effects of `hlth` (expenditure in Healthcare), and `mil` (expenditure in Military), so we won't remove those variables. We can remove `trade`.
+
+```{r}
+# remove trade
+formula.str <- 'pov ~ country.code+year+income+edu.total+hlth+mil+fdi+lbr.part+unemp+gdp.dflt+gcf+lfdi+lgdp.dflt'
+
+# Using single imputed data set
+fit1 <- lapply(1:countries1.imputed$m, \(i) lm(as.formula(formula.str), data = complete(countries1.imputed, i)))
+
+# gvif
+gvif <- lapply(fit1, vif)
+
+lapply(gvif, \(g) {
+  g[g[,3] > 2, 3]
+})
+```
+
+The adjusted GVIF are acceptably low.
+
+Coefficients overview.
+
+```{r}
+# find coef of variable other than country.code
+var <- c("year","incomeL","incomeLM","incomeUM","edu.total","hlth","mil","fdi","lbr.part","unemp","gdp.dflt","gcf","lfdi","lgdp.dflt")
+
+res <- do.call(rbind, lapply(fit1, \(f) f$coefficients[var]))
+kable(res)
+```
+
+There are several sign-switching in `income` coefficients, indicating the effect of removing some multicollinearity.
+
+```{r}
+fit1.summ <- lapply(fit1, \(f) {
+  k <- length(f$coefficients) - 1
+  pred <- predict(f, countries.test.4)
+  data.frame(
+    `Train Adj.R2` = summary(f)$adj.r.squared,
+    `Test Adj.R2` = adjR2(pred, countries.test.4$pov, k)
+  )
+})
+
+res <- do.call(rbind.data.frame, fit1.summ)
+res <- cbind(data.frame(Set = 1:3), res)
+kable(res)
+```
+
+Directly removing variables seems to be penalising our test results. As our interest is to investigate the effect of certain variables on poverty, the yielded R-Squared is within acceptable range. We can continue variable selection on the new models.
+
+```{r}
+formula.str <- 'pov ~ country.code+year+income+edu.total+hlth+mil+fdi+lbr.part+unemp+gdp.dflt+gcf+lfdi+lgdp.dflt'
+```
+
+
+#### B. Step-wise AIC
+We can conduct a step-wise AIC variable selection. It is similar to the procedure we use in class, but based on a metric call AIC (Akaike Information Criterion), which is an estimator of prediction error and relative quality of statistical models. The lower AIC is, the better the model fits. \\
+
+```{r}
+# helper
+fitAIC <- function(i) {
+  set.seed(1984)
+  fit <- lm(as.formula(formula.str), complete(countries1.imputed, i))
+  aic.fit <- stepAIC(fit, trace = F, direction = 'backward')
+  return(aic.fit)
+}
+
+# build models
+aic.fits <- lapply(1:countries1.imputed$m, fitAIC)
+
+# check final terms of each model
+lapply(aic.fits, \(mod) formula(mod$terms))
+```
+
+The most commonly removed variables are:
+
+- `gdp.dflt`
+- `ldgp.dflt`
+- `unemp`
+- `fdi`
+
+```{r}
+# predict with each model
+aic.pred <- lapply(aic.fits, predict, newdata = countries.test.4)
+# calculate adj r2
+aic.train.r2 <- unlist(lapply(aic.fits, \(model) summary(model)$adj.r.squared))
+
+k <- lapply(aic.fits, \(m) length(m$coefficients))
+aic.test.r2 <- unlist(mapply(adjR2, aic.pred, k = k, MoreArgs = list(orig = countries.test.4$pov)))
+
+res <- data.frame(`set no.` = 1:3, train = aic.train.r2, test = aic.test.r2)
+```
+
+We can compare Adjusted R-Squared to estimate relative over-fitting in the new models.
+
+```{r}
+kable(res)
+```
+
+Performance on train set and test set are slightly improved. However, we have simplified the model by removing some unnecessary terms. We can update our models.
+
+```{r}
+formula.str <- 'pov ~ country.code+year+income+edu.total+hlth+mil+lbr.part+gcf+lfdi'
+
+fit3 <- lapply(1:countries1.imputed$m, \(i) lm(as.formula(formula.str), data = complete(countries1.imputed, i)))
+
+# Build models with all generated data set and pool the estimates
+fit4 <- with(data = countries1.imputed, exp = lm(as.formula(formula.str)))
+fit4.combined <- pool(fit4)
+# dummy lm model
+fit4.dummy <- lm(as.formula(formula.str), data = complete(countries1.imputed, 1))
+# replace coefficients of dummy model & predict
+fit4.dummy$coefficients <- fit4.combined$pooled$estimate
+
+fit3.summ <- lapply(fit3, \(f) {
+  k <- length(f$coefficients) - 1
+  pred <- predict(f, countries.test.4)
+  test.resid <- pred - countries.test.4$pov
+  data.frame(
+    `Train MSE` = mean(summary(f)$residuals^2),
+    `Test MSE` = mean(test.resid^2),
+    `Train MAE` = mean(abs(summary(f)$residuals)),
+    `Test MAE` = mean(abs(test.resid)),
+    `Train Adj.R2` = summary(f)$adj.r.squared,
+    `Test Adj.R2` = adjR2(pred, countries.test.4$pov, k)
+  )
+})
+
+k <- length(fit4.dummy$coefficients) - 1
+fit4.pred <- predict(fit4.dummy, countries.test.4)
+test.resid <- fit4.pred - countries.test.4$pov
+fit4.summ <- data.frame(
+  `Train MSE` = mean(summary(fit4.dummy)$residuals^2),
+  `Test MSE` = mean(test.resid^2),
+  `Train MAE` = mean(abs(summary(fit4.dummy)$residuals)),
+  `Test MAE` = mean(abs(test.resid)),
+  `Train Adj.R2` = pool.r.squared(fit4, adjusted = T)[,'est'],
+  `Test Adj.R2` = adjR2(fit4.pred, countries.test.4$pov, k)
+)
+
+res <- do.call(rbind.data.frame, fit3.summ)
+res <- rbind(res, fit4.summ)
+res <- cbind(data.frame(Set = c(1:3, "Pooled")), res)
+
+kable(res)
+```
+
+Coefficients overview.
+
+```{r}
+var <- c("year","incomeL","incomeLM","incomeUM","edu.total","hlth","mil","lbr.part","gcf","lfdi")
+
+res <- do.call(rbind, lapply(fit3, \(f) f$coefficients[var]))
+kable(res)
+```
+
+We can further treat over-fitting with regularization.
+
+#### C. Regularization
+
+Helper functions to standardise data.
+
+```{r}
+sd0 <- function(vct) {
+  if (!is.numeric(vct)) {
+    return(NA)
+  }
+  
+  return(sd(vct, na.rm = T))
+}
+
+
+std0 <- function(vct, scl) {
+  if (!is.numeric(vct)) {
+    return(vct)
+  }
+  
+  return(vct/scl)
+}
+
+standardise <- function(train, test) {
+  # save number of train and combine both data set
+  trainCases <- 1:nrow(train)
+  data <- rbind(train, test)
+  # calc scaler
+  scaler <- unlist(lapply(data, sd0))
+  # get the numeric columns
+  numCols <- which(unlist(lapply(data, is.numeric)))
+  # divide numeric columns by scalers, and combine with factor columns
+  num <- as.data.frame(mapply(std0, vct = data[,numCols], scl = scaler[numCols], SIMPLIFY = T))
+  fct <- data[,-numCols]
+  final <- cbind(fct, num)
+  # split to train and test
+  trainSet <- final[trainCases,]
+  testSet <- final[-trainCases,]
+  
+  res <- list(final = final, train = trainSet, test = testSet, scaler = scaler)
+  return(res)
+}
+```
+
+Helper function to build the optimal model.
+
+```{r}
+optimalModel <- function(formula, train, test) {
+  set.seed(1984)
+  # standise and save number of train cases (to split later)
+  std.data <- standardise(train, test)
+  trainCases <- 1:nrow(train)
+  # matrix-ise
+  xs <- model.matrix(formula, std.data$final)[,-1]
+  ys <- std.data$final$pov
+  # split data
+  train.x <- xs[trainCases,]
+  train.y <- ys[trainCases]
+  test.x <- xs[-trainCases,]
+  test.y <- ys[-trainCases]
+  # list of tested alpha, resolution = 0.1
+  alphas <- seq(0, 1, 0.1)
+  # build a bunch of models
+  models <- lapply(alphas, \(a) cv.glmnet(train.x, train.y, type.measure = "mse", alpha = a))
+  cv.error <- unlist(lapply(models, \(model) model$cvm[model$lambda == model$lambda.min]))
+  # best model
+  best.model.idx <- which.min(cv.error)
+  # optimal alpha and lambda
+  alpha.opt <- alphas[best.model.idx]
+  lambda.opt <- models[[best.model.idx]]$lambda.min
+  best.model <- glmnet(train.x, train.y, alpha = alpha.opt, lambda = lambda.opt)
+  # predict for test data
+  train.fit <- predict(best.model, train.x)
+  test.fit <- predict(best.model, test.x)
+  # evaluation - train
+  k <- best.model$df
+  train.r2 <- best.model$dev.ratio
+  train.adjR2 <- adjR2(train.fit, train.y, k)
+  train.resid <- train.fit - train.y
+  train.mse <- mean(train.resid^2)
+  train.rmse <- sqrt(train.mse)
+  train.mae <- mean(abs(train.resid))
+  train.mape <- mean(abs(train.resid / train.y))
+  # evaluation - test
+  test.r2 <- r2(test.fit, test.y)
+  test.adjR2 <- adjR2(test.fit, test.y, k)
+  test.resid <- test.fit - test.y
+  test.mse <- mean(test.resid^2)
+  test.rmse <- sqrt(test.mse)
+  test.mae <- mean(abs(test.resid))
+  test.mape <- mean(abs(test.resid / test.y))
+  # final results
+  results <- list(
+    train = list(
+      data = train,
+      r2 = train.r2,
+      adj.r2 = train.adjR2,
+      fitted = train.fit,
+      residuals = train.resid,
+      mse  = train.mse,
+      rmse = train.rmse,
+      mae  = train.mae,
+      mape = train.mape
+    ),
+    test = list(
+      data = test,
+      r2 = test.r2,
+      adj.r2 = test.adjR2,
+      fitted = test.fit,
+      residuals = test.resid,
+      mse  = test.mse,
+      rmse = test.rmse,
+      mae  = test.mae,
+      mape = test.mape
+    ),
+    scaler = std.data$scaler,
+    alpha = alpha.opt,
+    lambda = lambda.opt,
+    model = best.model
+  )
+  
+  return(results)
+}
+```
+
+Build the optimal models using each imputed data set.
+
+```{r}
+# helper function to build from a specific imputed data
+buildWith <- function(set, imputed, test, formula, fun) {
+  train <- complete(imputed, set)
+  model <- fun(formula, train, test)
+  return(model)
+}
+
+set.seed(1984)
+
+models <- lapply(1:countries1.imputed$m, buildWith, imputed = countries1.imputed, test = countries.test.4, formula = as.formula(formula.str), fun = optimalModel)
+```
+
+Display parameters and evaluation.
+
+```{r}
+result.list <- lapply(models, \(mod) {
+  data.frame(
+    alpha = mod$alpha,
+    lambda = mod$lambda,
+    `Train MSE` = mod$train$mse,
+    `Test MSE` = mod$test$mse,
+    `Train MAE` = mod$train$mae,
+    `Test MAE` = mod$test$mae,
+    `Train R2` = mod$train$r2,
+    `Test R2` = mod$test$r2,
+    `Train Adj.R2` = mod$train$adj.r2,
+    `Test Adj.R2` = mod$test$adj.r2
+  )
+})
+
+result.df <- do.call(rbind.data.frame, result.list)
+result.df <- cbind(data.frame(Set = 1:countries1.imputed$m), result.df)
+kable(result.df)
+```
+
+There are some improvement on the test data performance based on adjusted R-Squared. MSE and MAE remain low on both data sets.
+
+Coefficients overview.
+
+```{r}
+var <- c("year","incomeL","incomeLM","incomeUM","edu.total","hlth","mil","lbr.part","gcf","lfdi")
+
+res <- do.call(rbind, lapply(models, \(f) coefficients(f$model)[var,]))
+res <- cbind(data.frame(Set = 1:3), res)
+kable(res)
+```
+
+All non-country.code variables are non-zero. We can observe that the regularisation models just remove the effect of `country.code`, for countries that have similar "baseline".
+
+###  3.4.2. Assessment
+
+Now we are evaluating some performance metrics, checking assumptions, and remedy some potential problems.
+
+#### A. Homoscedasticity
+
+Plot the residuals ~ pov
+
+```{r}
+for (mod in models) {
+  resid <- mod$train$residuals
+  fitted <- mod$train$fitted
+  # plot(resid ~ pov, main = paste("Model", i))
+  print(ggplot(mapping = aes(y = resid, x = fitted)) +
+    geom_point() +
+    geom_smooth(formula = y ~ x, method = loess))
+}
+```
+
+There seems to be some larger variance with higher values of `pov`. We can conduct a statistical test to confirm the present of heteroscedasticity.
+
+The Goldfeld-Quandt test is performed by eliminating a certain number of observations from the dataset’s center, then comparing the spread of residuals between the two datasets on either side of the central observations.
+
+The Goldfeld-Quandt test examines two submodels’ variances divided by a defined breakpoint and rejects if the variances disagree.
+
+Under H0, the Goldfeld-Quandt test’s test statistic follows an F distribution with degrees of freedom as specified in the parameter.
+
+- **Null (H0):** Heteroscedasticity is not present.
+- **Alternative (H1):** Heteroscedasticity is present.
+
+```{r}
+lapply(models, \(m) {
+  resid <- m$train$residuals
+  # apply Goldfeld-Quandt test
+  gqtest(formula = resid ~ 1, order.by = m$train$fitted)
+})
+```
+
+There is heteroscedasticity in our models. [Generalized Least Squares With Unknown For of Variance](https://rpubs.com/cyobero/187387) is a possible remedy of this problem, but at the cost of model interpretation. The high variance in higher end of `pov` can be explained by the relative volatile economical and political climate in highly poor countries (one standard deviation from mean), leading to unstable effect of predictors.
+
+#### B. Independence
+
+Some possible source of dependency are poverty measured on the same country, or in the same year. These are accounted in our models by controlling those variables. 
+
+Some countries have been engaging in international wars, being under the influences of foreign forces such as Iraq, and Afghanistan. They possess similar (and different) political climates. Some other groups of economical alliance, or enjoying similar natural resources: OPEC, EU, ASEAN, etc. might have similar characteristics that make them dependent.
+
+A solution to resolve this is to conduct the study on countries with similar geographical characteristics. In our study, however, we are interested in the general effects of certain variable across the globe. Although there are some dependence, the large number of entities with various features, we hypothesize, will cancel each other out, resulting in a net effect that gives an overview of the influences of variables.
+
+#### C. Normally Distributed Residuals
+
+```{r}
+for (m in models) {
+  p <- ggplot(mapping = aes(x = m$train$residuals)) +
+    geom_histogram(aes(y = ..density..), bins = 30) +
+    geom_density(alpha = .2, fill = "blue")
+  
+  print(p)
+}
+```
+
+Although quite negatively skewed, the residuals are visibly normal.
+
+#### D. Outliers
+
+As elastic net models produced in the last section are not very fit for detecting outliers using R-support function. As they just removed dummy variables in `country.code`, we can using OLS to detect some potential outliers. They are the same models we produced after the step-AIC selection (`fit3` and `fit4`)
+
+```{r}
+for (mod in fit3) {
+  plot(mod, which = 4)
+}
+```
+
+Some obvious outliers are point 1122, 1327, 1395, 1396, 1424, 1474.
+
+```{r}
+out <- c(1122, 1327, 1395, 1396, 1424, 1474)
+var <- c("country.code","country.name","year","pov","income","edu.total","hlth","mil","lbr.part","gcf","lfdi")
+# See the original data instead of imputed data
+countries.train.4[out,var]
+```
+
+These countries all appear very infrequently in our data set (only twice for South Sudan and St.Lucia). The gap between their appearance are quite large, too. Such reasons could have made the model struggle to predict their poverty states.
+
+Yemen's data were collected in 1998, 2005, and 2014, a huge gap in time, by when it has doubled its poverty rate.
+
+Guinea is an interesting point. Because the outlier data (87.9% in 1991) is quite different to the next data point (40.8% in 1994), a huge jump in just 3 years. This might be a consequence of the political changes (new constitution, establishment of the Supreme Court, etc.) in this period. They are the changes not captured by the variables.
+
+Gambia has the issue with Guinea, when it saw a huge reduction of poverty of 25% from 1998-2003.
+
+Lucia only has two data points with large gap in time (1995-2016). It can be difficult to know much about someone if you only met them twice, with 21 years in between.
+
+These data seems valid and there is no convincing reasons to remove them from the model (in the case of Guinea and Gambia, maybe there was some false reports because the jump were quite suspicious, but we need more evidence to conclude that they are false data).
+
+###  3.4.3. Interpretation
+
+Final model coefficients (exclude `country.code`):
+
+```{r}
+var <- c("year","incomeL","incomeLM","incomeUM","edu.total","hlth","mil","lbr.part","gcf","lfdi")
+
+res <- do.call(rbind, lapply(models, \(f) coefficients(f$model)[var,]))
+res <- cbind(data.frame(Set = 1:3), res)
+kable(res)
+```
+
+We should convert them to un-standardised value for easier interepretation.
+
+```{r}
+var <- c("year","incomeL","incomeLM","incomeUM","edu.total","hlth","mil","lbr.part","gcf","lfdi")
+
+res <- do.call(rbind, lapply(models, \(f) {
+  # get scaler saved in the model
+  scaler <- f$scaler
+  # categorical has scaler = 1
+  scaler[c("incomeL","incomeLM","incomeUM")] <- 1
+  # beta = std.beta * sigma_y / sigma_x
+  coefficients(f$model)[var,] * scaler['pov'] / scaler[var]
+}))
+kable(res)
+```
+
+# 4. Conclusion
+# 5. References
