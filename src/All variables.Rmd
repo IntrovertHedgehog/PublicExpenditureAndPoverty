@@ -3,24 +3,50 @@ title: "Imtiyaaz"
 output: html_document
 date: "2022-11-03"
 ---
+Introduction : The project aim is to explore different models using the same dataset to evaluate which method will be the best to build a model for the dependent variable. The dataset we are using for this project has 1901 data values from 23 different variables. Our plan for this project is to first build a model with all the variables in the dataset. We will then follow it up by builidng a model without the missing values and build a ridge regression and Lasso regression model. Our second approach will be to selectively remove variables from the model and to build the best model  using regularisation and regression. Our next approach was to add the variables into the model one at a time to see if a different model can be achieved. Lastly, we performed imputation on our model to tackle the missing values present in our dataset.We then compared all of this approaches to come to a conclusion.
+
+
+
 ```{r}
 library(tidyverse) # for data manipulations and visualisations
 library(ggpubr) # for correlation coefficient on plot
 library(gridExtra) # for arranging plots 
 library(e1071) # for skewness
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(readxl)
+library(corrplot)
+library(car)
+library(DescTools)
+library(glmnet)
 ```
 
-
-
+First we will write the function "eval_results(true,predict) to evaluate the models
 ```{r}
-df <-read.csv('data/countries.csv' , ,sep = "", header = TRUE)
+eval_results <- function(true, predict) {
+  actual <- data.matrix(true)
+  SSE <- sum((predict - actual)^2)
+  SST <- sum((actual - mean(actual))^2)
+  R_square <- 1 - SSE / SST
+  data.frame(
+    MSE = MSE(predict, true),
+    MAE = MAE(predict, true),
+    RMSE = RMSE(predict, true),
+    Rsquare = R_square
+  )
+}
+```
+First we read the csv file for the countries containing the dataset. We will then put the variables we need in to subset1.
+```{r}
+df <-read.csv('../data/countries1.csv')
 df
-subset1 <- df %>% select("income","edu.total","edu.pri","edu.sec","edu.ter","hlth","mil","fdi","lbr.part","unemp","pop.gwth.total","pop.gwth.rural","pop.gwth.urban","gdp.dflt","gdr.eql","gcf","trade")
-
+subset1 <- df %>% select("pov","country.code","year","income","edu.total","hlth","mil","fdi","lbr.part","unemp","pop.gwth.total","pop.gwth.rural","gdp.dflt","gcf","trade","gdp.pc","lfdi","lgdp.dflt","lgdp.pc")
+subset1
 ```
 
 
-
+Next we will build a SLR model. We will put 80% of dataset to train and the rest to test.
 ```{r}
 set.seed(10)
 index <- sort(sample(x = nrow(subset1), size = nrow(subset1)*.8))
@@ -28,14 +54,233 @@ train <- df[index, ]
 test <- df[-index, ]
 ```
 
-
-
-
-
-
-
+The model output will be placed in lm.slr and can be viewed in summary(lm.slr). THe r-squared value is 0.9619.
 ```{r}
-lm.slr <- lm(pov ~ income+edu.total+edu.pri+edu.sec+edu.ter+hlth+mil+fdi+lbr.part+unemp+pop.gwth.total+pop.gwth.rural+pop.gwth.urban+gdp.dflt+gdr.eql+gcf+trade,data = train)
+lm.slr <- lm(pov ~ country.code+year+income+edu.total+hlth+mil+fdi+lbr.part+unemp+pop.gwth.total+pop.gwth.rural+gdp.dflt+gcf+trade+gdp.pc+lfdi+lgdp.dflt+lgdp.pc,data = train)
 summary(lm.slr)
 
 ```
+Next we will be performing standardisation.However not all the variables are numerical. Therefore to overcome it we build the function below. This will allow us to perform standardisation to the dataset.
+```{r}
+subset1$income <- factor(subset1$income)
+subset1$country.code <- factor(subset1$country.code)
+
+
+
+sd0 <- function(vct) {
+  if (!is.numeric(vct)) {
+    return(NA)
+  }
+  
+  return(sd(vct, na.rm = T))
+}
+
+
+std0 <- function(vct, scl) {
+  if (!is.numeric(vct)) {
+    return(vct)
+  }
+  
+  return(vct/scl)
+}
+
+scale <- function(data) {
+  unlist(lapply(data, sd0))
+}
+
+standardise <- function(data) {
+  scaler <- scale(data)
+  
+  numCols <- which(unlist(lapply(data, is.numeric)))
+  num <- as.data.frame(mapply(std0, vct = data[,numCols], scl = scaler[numCols], SIMPLIFY = T))
+  fct <- data[,-numCols]
+  return(cbind(fct, num))
+}
+```
+
+Next we will perform standardistation to the dataset.
+```{r}
+str(subset1)
+df0 <- subset1
+subset1
+apply(subset1, 2, sd)
+
+
+```
+
+Next we will plot a pov vs income scatter plot to see the effect of income on pov. From the scatter plot, we can deduce that the low income countries have a higher pov while the higher income countries have low pov. This is consistent with our intuition that countries that are richer do not have as much poverty issue as the poorer countries.
+```{r}
+ggplot(data = subset1, aes(x = income, y = pov)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(title = "Pov vs. Income ",
+       x = "income",
+       y = "pov")
+
+```
+Next we will build a MLR model with data from subset 1 to see the relationship between dependent variable:pov and the other variables
+
+```{r}
+model1 <- lm(pov ~ ., data = subset1)
+summary(model1)
+vif(model1)
+
+```
+Next we will perform regularisation. We will split the data to predictor variable "train.x" and response variables "train.y"
+```{r}
+subset2 <- subset(subset1,select =c("pov","country.code","year","income","edu.total","hlth","mil","fdi","lbr.part","unemp","pop.gwth.total","pop.gwth.rural","gdp.dflt","gcf","trade","gdp.pc","lfdi","lgdp.dflt","lgdp.pc"))
+subset2 <- na.omit(subset2)
+subset2
+train.x <- data.matrix(subset(subset2, select = -pov))
+train.y = data.matrix(subset2$pov)
+```
+
+Next we will perform splitting of data to train and test.
+```{r}
+split_train_test <- function(data) {
+set.seed(1984)
+# split data
+seeds <- data %>% 
+  group_by(country.code) %>% 
+  filter(row_number() == 1)
+
+plants <- data %>% 
+  group_by(country.code) %>% 
+  filter(row_number() != 1)
+
+isComplete <- which(complete.cases(plants))
+idx <- sample(isComplete, replace = F, 0.2 * nrow(plants))
+
+training <- plants[-idx,] %>% 
+  rbind(seeds)
+test <- plants[idx,]
+
+return(list(training, test))
+}
+
+training <- split_train_test(subset2)[[1]]
+test <- split_train_test(subset2)[[2]]
+
+ntrain <- 1:nrow(training)
+combine <- rbind(training, test)
+combine.mtrx <- model.matrix(pov ~ ., data = combine)
+train.mtrx <- combine.mtrx[ntrain,]
+test.mtrx <- combine.mtrx[-ntrain,]
+
+train.x <- train.mtrx[,-1]
+train.y <- training$pov
+
+test.x <- test.mtrx[,-1]
+text.y <- test$pov
+```
+
+We then build a MLR model with the training model to train it.
+
+```{r}
+model3 <- lm(pov ~., data = training)
+summary(model3)
+
+```
+
+```{r}
+fit <- model3$fitted.values
+true <- training$pov
+summary_MLR3_train <- eval_results(true, fit)
+```
+
+We then evaluate the model between train and test
+```{r}
+fit <- predict(model3, newdata=test)
+true <- test$pov
+summary_MLR3_test <- eval_results(true, fit)
+```
+
+We can see the evaluation of the model from the function below. From the train model, the R^squared value will be 0.965 and for the test model it will be 0.881.
+
+```{r}
+summary_MLR <- rbind(summary_MLR3_train[-5], 
+                     summary_MLR3_test[-5])
+rownames(summary_MLR) <- c("Baseline MLR_Train", 
+                           "Baseline MLR_Test" )
+knitr::kable(summary_MLR, digits = 3)
+```
+Next we will be performing ridge and lasso regression model using the following code. We will split the data to train and test.
+```{r}
+# Training Data
+data <- training
+train.x <- data.matrix(data[,-ncol(data)])
+train.y <- data.matrix(data[,ncol(data)])
+
+# Test Data
+data <- test
+test.x <- data.matrix(data[,-ncol(data)])
+test.y <- data.matrix(data[,ncol(data)])
+```
+
+Next we will perform the Ridge regression model.
+```{r}
+# Fit Ridge Regression Model
+set.seed(123)
+cv_ridge <- cv.glmnet(train.x, train.y, alpha = 0)
+glm_ridge <- glmnet(train.x, train.y, 
+                    alpha = 0, lambda = cv_ridge$lambda.min)
+
+# Evaluate Ridge Regression Model on Training Set
+fit <- predict(glm_ridge, newx = train.x, type = "response")
+true <- train.y
+summary_ridge_train <- eval_results(true, fit)
+
+
+# Evaluate Ridge Regression Model on Test Set
+fit <- predict(glm_ridge, newx = test.x, type = "response")
+true <- test.y
+summary_ridge_test <- eval_results(true, fit)
+
+# Summarise Ridge Regression Model Performance into Table
+summary_ridge <- rbind(summary_ridge_train, summary_ridge_test)
+rownames(summary_ridge) <- c("Ridge Model_Train", "Ridge Model_Test" )
+```
+
+Next we will perform Lasso Regression model
+
+```{r}
+# Fit LASSO Model
+set.seed(123)
+cv_lasso <- cv.glmnet(train.x,train.y, alpha = 1)
+glm_lasso <- glmnet(train.x,train.y, alpha = 1, 
+                    lambda = cv_lasso$lambda.min)
+
+# Evaluate LASSO Model on Training Set
+fit <- predict(glm_lasso, newx = train.x)
+true <- train.y
+summary_lasso_train <- eval_results(true, fit)
+
+# Evaluate LASSO Model on Test Set
+fit <- predict(glm_lasso, newx = test.x)
+true <- test.y
+summary_lasso_test <- eval_results(true, fit)
+
+# Summarise LASSO Model Performance into Table
+summary_lasso <- rbind(summary_lasso_train, summary_lasso_test)
+rownames(summary_lasso) <- c("LASSO Model_Train", "LASSO Model_Test" )
+```
+
+We will compare the 3 models that we have build, Multi linear ,Ridge and Lasso regression models. We evaluate the 3 models together and compare both train and test models of each of the 3 regression model.
+
+```{r}
+summary_3models <- rbind(summary_MLR3_train, 
+                         summary_ridge_train,                               
+                         summary_lasso_train, 
+                         summary_MLR3_test,                             
+                         summary_ridge_test, 
+                         summary_lasso_test)
+
+rownames(summary_3models) <- c("Baseline MLR_Train", "Ridge Model_Train", 
+                               "LASSO Model_Train",  "Baseline MLR_Test",  
+                               "Ridge Model_Test", "LASSO Model_Test" )
+
+knitr::kable(summary_3models[1:3,-5], digits = 3)
+knitr::kable(summary_3models[4:6,-5], digits = 3)
+
+```
+From the 3 models we can see that the original multi linear regression model is the best one with the highest R^squared value. However the Lasso Regression Model has the lowest MSE, MAE and RMSE. We can conclude that the reason for the first model having the highest R^squared value might be due to overfitting as many values will get removed. Next we will build other models to see if they work better.
