@@ -1131,8 +1131,8 @@ Plotting the coefficients against different lambda values.
 plot_glmnet(ridge_model)
 ```
 
-Interesting! For a low lambda value, the model exhibits `cntr.MDG`, which represents Madagascar, followed by `cntr.ZMB`, which represents Zimbabwe,  as key predictor variables.
-This means that the model depends highly on whether the country is Madagascar or Zimbabwe, followed by some other significant countries. The other variables that previously defined the model is now undermined by the presence of the `country.code` variable and does not show high influence. 
+Interesting! For a low lambda value, the model exhibits `cntr.MDG`, which represents Madagascar, followed by `cntr.ZMB`, which represents Zambia,  as key predictor variables.
+This means that the model depends highly on whether the country is Madagascar or Zambia, followed by some other significant countries. The other variables that previously defined the model is now undermined by the presence of the `country.code` variable and does not show high influence. 
 
 We then proceeded to evaluate the results 
 
