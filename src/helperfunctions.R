@@ -1,47 +1,29 @@
-library(readr)
-library(tidyr)
-library(dplyr)
-
-importWDI <- function(filepath, value_name) {
-  df <- read_csv(filepath, skip = 4) 
+sd0 <- function(vct) {
+  if (!is.numeric(vct)) {
+    return(NA)
+  }
   
-  colnames(df) <- tolower(gsub(" ", ".", colnames(df)))
-  
-  df <- df %>% 
-    pivot_longer(5:ncol(.), names_to = "year", values_to = "value") %>% 
-    filter(!is.null(value) & !is.na(value)) %>% 
-    mutate(country.code = factor(country.code), 
-           country.name = factor(country.name),
-           year = as.numeric(year)) %>% 
-    select(country.code, country.name, year, value)
-  
-  colnames(df)[4] <- value_name
-  
-  df
+  return(sd(vct, na.rm = T))
 }
 
-importRegionClass <- function(filepath) {
-  df <- read_csv(filepath, skip = 4) 
+
+std0 <- function(vct, scl) {
+  if (!is.numeric(vct)) {
+    return(vct)
+  }
   
-  colnames(df) <- tolower(gsub(" ", ".", colnames(df)))
-  
-  df %>% mutate(country.name = factor(country.name),
-                region = factor(region)) %>% 
-    select(country.name, reg = region)
+  return(vct/scl)
 }
 
-importIncomeClass <- function(filepath) {
-  df <- read_csv(filepath, skip = 4) 
-  
-  colnames(df) <- tolower(gsub(" ", ".", colnames(df)))
-  
-  df %>% 
-    pivot_longer(3:ncol(.), names_to = "year", values_to = "income") %>% 
-    filter(!is.null(income) & !is.na(income)) %>% 
-    mutate(country.code = factor(country.code), 
-           country.name = factor(country.name), 
-           year = as.numeric(year), 
-           income = factor(income)) %>% 
-    select(country.code, country.name, year, income)
+scale <- function(data) {
+  unlist(lapply(data, sd0))
 }
 
+standardise <- function(data) {
+  scaler <- scale(data)
+  
+  numCols <- which(unlist(lapply(data, is.numeric)))
+  num <- as.data.frame(mapply(std0, vct = data[,numCols], scl = scaler[numCols], SIMPLIFY = T))
+  fct <- data[,-numCols]
+  return(cbind(fct, num))
+}
