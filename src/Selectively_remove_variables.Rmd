@@ -330,6 +330,7 @@ true2 <- train.y
 summary_Lasso_train <- eval_results(fit2, true2)
 summary_Lasso_train
 ```
+
 ```{r}
 plot_glmnet(lasso_model)
 ```
@@ -350,14 +351,6 @@ knitr::kable(summary_lasso, digits = 3)
 
 This section recapitulates the three models that we have generated so far through the method of gradually removing variables from the original dataset. 
 
-
-```{r}
-knitr::kable(summary_lasso, digits = 3)
-```
-
-```{r}
-knitr::kable(summary_Ridge, digits = 3)
-```
 ```{r}
 summary(lm_4)
 ```
@@ -367,15 +360,27 @@ Our first model, `lm_4`, generated with regular multiple linear regression exhib
 Apart from income, some other variables that contribute more significantly to the model are `lgdp.pc`, with a coefficient of -3.13114, exhibiting a stronger negative correlation, and `pop.gwth.urban`, exhibiting a stronger positive correlation with a coefficient of 1.90680. This is counter-intuitive, as the notion is that population growth in cities will help drive positive economic change due to the number of productive people living in the city. 
 The model also shows that `pop.gwth.rural` gives a less significant impact on `pov` as compared to  `pop.gwth.rural`. 
 
-Both the Ridge regression and LASSO regression models exhibit similar result metrics (MSE, MAE, MAPE, R^2). This result is expected. 
+
+```{r}
+knitr::kable(summary_lasso, digits = 3)
+```
+
+```{r}
+knitr::kable(summary_Ridge, digits = 3)
+```
+The MSE for the LASSO regression model is slightly higher than that of the Ridge regression model. This to be expected, as the Ridge regression model aims for an improved accuracy while the LASSO model aims for an improved interpretability. Both models seem to exhibit very high R^2 value for both the training and testing dataset. 
 
 ```{r}
 plot_glmnet(lasso_model)
+```
+```{r}
+
 ```
 
 ```{r}
 plot_glmnet(ridge_model)
 ```
-###  3.2.3. Interpretation
-
-The comparison between the three models suggests that `country.code` affects the models generated in a significant way. 
+```{r}
+plot(lm_4, which = 5)
+```
+The `Residual vs Leverage` plot of `lm_4` suggests that heteroskedasticity might be present in the model. This means that the variance of the residuals is unequal over a range of observed values. This problem exists in the dataset rather than the models generated.
