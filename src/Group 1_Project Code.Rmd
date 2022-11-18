@@ -1115,7 +1115,7 @@ Building a model with the lambda that outputs the smallest MSE.
 cv_ridge <- cv.glmnet(train.x, train.y, alpha = 0)
 glm_Ridge <- glmnet(train.x, train.y, alpha = 0, lambda = cv_ridge$lambda.min)
 
-t(coef(glm_Ridge))
+head(t(coef(glm_Ridge)))
 ```
 The ridge regression model shows that some countries have a higher influence on the model than others. At first glance,it seems like the Y variable, `pov`, depends heavily on whether or not it belongs to certain countries.To further illustrate the significance of `country.code`, we will plot the ridge regression graph for different lambda values. 
 ```{r}
@@ -1193,7 +1193,7 @@ plot(cv_lasso)
 
 ```{r}
 glm_Lasso <- glmnet(train.x, train.y, alpha = 1, lambda = cv_lasso$lambda.min)
-t(coef(glm_Lasso))
+head(t(coef(glm_Lasso)))
 ```
 It is evident that the number of variables included in the model is less than that of ridge regression. This is in accordance with the nature of the LASSO regression model that reduces the coefficients of certain predictor variables to zero for model interpretability. 
 
@@ -1201,7 +1201,7 @@ It is evident that the number of variables included in the model is less than th
 lambda <- 10^seq(-6, 2, length = 100)
 lasso_model = glmnet(train.x, train.y, alpha = 1, lambda = lambda)
 
-t(coef(lasso_model))
+head(t(coef(lasso_model)))
 ```
 ```{r}
 plot_glmnet(lasso_model)
